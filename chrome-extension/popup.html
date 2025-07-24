@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CopyThief</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Loading Section -->
+    <div id="loading-section" class="loading-section">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Carregando...</div>
+    </div>
+
+    <!-- Login Section -->
+    <div id="login-section" class="login-section" style="display: none;">
+      <div class="header">
+        <div class="logo">
+          <div class="logo-icon">⚡</div>
+          <span class="logo-text">CopyThief</span>
+        </div>
+      </div>
+      
+      <div class="content">
+        <div class="login-form">
+          <h3>Faça login para continuar</h3>
+          <input type="email" id="email" placeholder="Email" class="input-field">
+          <input type="password" id="password" placeholder="Senha" class="input-field">
+          <button id="login-btn" class="login-btn">Entrar</button>
+          <div id="login-error" class="error-message" style="display: none;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Section -->
+    <div id="main-section" class="main-section" style="display: none;">
+      <div class="header">
+        <div class="logo">
+          <div class="logo-icon">⚡</div>
+          <span class="logo-text">CopyThief</span>
+        </div>
+        <button id="logout-btn" class="logout-btn">Sair</button>
+      </div>
+      
+      <div class="content">
+        <div class="user-info">
+          <div id="user-email" class="user-email"></div>
+        </div>
+        
+        <div class="status-section">
+          <div id="status" class="status">
+            <div class="status-icon">🔍</div>
+            <div class="status-text">Detectando anúncios...</div>
+          </div>
+        </div>
+        
+        <div class="actions">
+          <button id="swipe-btn" class="swipe-btn">
+            <span class="btn-icon">💾</span>
+            <span class="btn-text">Salvar Anúncio</span>
+          </button>
+        </div>
+        
+        <div class="stats">
+          <div class="stat">
+            <span class="stat-label">Total de Swipes:</span>
+            <span id="total-swipes" class="stat-value">0</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="footer">
+        <a href="#" class="dashboard-link">
+          Abrir Dashboard →
+        </a>
+      </div>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html> 

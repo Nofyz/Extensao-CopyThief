@@ -1,0 +1,37 @@
+/* Estilos para os botões do CopyThief */
+
+.copythief-btn {
+  margin-top: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  background: #a78bfa !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 10px 0 !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  font-size: 1rem !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  display: block !important;
+  opacity: 1 !important;
+  position: relative !important;
+  z-index: 10 !important;
+  animation: none !important;
+  transition: background-color 0.2s !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  box-sizing: border-box !important;
+}
+
+.copythief-btn:hover {
+  background: #9333ea !important;
+}
+
+.copythief-wrapper {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+  width: 100% !important;
+} 
