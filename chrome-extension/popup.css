@@ -1,5 +1,6 @@
-/* Estilos para o popup do CopyThief */
+:root{background-color:#242424;color:#ffffffde;color-scheme:light dark;font-family:system-ui,Avenir,Helvetica,Arial,sans-serif;font-synthesis:none;font-weight:400;line-height:1.5;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}a{color:#646cff;font-weight:500;text-decoration:inherit}a:hover{color:#535bf2}body{display:flex;margin:0;min-height:100vh;min-width:320px;place-items:center}h1{font-size:3.2em;line-height:1.1}button{background-color:#1a1a1a;border:1px solid transparent;border-radius:8px;cursor:pointer;font-family:inherit;font-size:1em;font-weight:500;padding:.6em 1.2em;transition:border-color .25s}button:hover{border-color:#646cff}button:focus,button:focus-visible{outline:4px auto -webkit-focus-ring-color}@media (prefers-color-scheme:light){:root{background-color:#fff;color:#213547}a:hover{color:#747bff}button{background-color:#f9f9f9}}#root{margin:0 auto;max-width:1280px;padding:2rem;text-align:center}.logo{height:6em;padding:1.5em;transition:filter .3s;will-change:filter}.logo:hover{filter:drop-shadow(0 0 2em #646cffaa)}.logo.react:hover{filter:drop-shadow(0 0 2em #61dafbaa)}@keyframes logo-spin{0%{transform:rotate(0)}to{transform:rotate(1turn)}}@media (prefers-reduced-motion:no-preference){a:nth-of-type(2) .logo{animation:logo-spin 20s linear infinite}}.card{padding:2em}.read-the-docs{color:#888}.popup-container{background:#18181b;border-radius:18px;box-shadow:0 4px 32px #0008;color:#fff;font-family:Inter,Arial,sans-serif;margin:0 auto;max-width:350px;min-width:320px;padding:32px 18px 28px}h1{font-size:2rem;font-weight:800;letter-spacing:1px;margin-bottom:24px;text-align:center}.tab-active{background:#27272a;box-shadow:0 2px 8px #0002;color:#fff;font-weight:700}.tab:hover:not(.tab-active){background:#23232a;color:#fff}.btn{background:#27272a;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:1rem;font-weight:600;margin-top:12px;padding:10px 0;transition:background .2s;width:100%}.btn:hover{background:#3f3f46}.btn-logout{background:#1e293b;border:1px solid #f87171;color:#f87171;margin-top:18px}.btn-logout:hover{background:#991b1b;color:#fff}.auth-area{margin-top:16px;width:100%}.login-form .input{background:#23232a;border:2px solid #23232a;border-radius:8px;box-sizing:border-box;color:#fff;font-size:1rem;margin-bottom:6px;outline:none;padding:10px 14px;transition:border .2s;width:100%}.login-form .input:focus{border:2px solid #a78bfa}.btn-primary{background:#7c3aed;color:#fff;margin-bottom:8px}.btn-primary:hover{background:#a78bfa}.btn-google{align-items:center;background:#fff;border:1px solid #7c3aed;color:#18181b;display:flex;font-weight:500;gap:8px;justify-content:center;margin-bottom:8px}.btn-google:hover{background:#f3f3f3;box-shadow:0 2px 8px #7c3aed14}.user-info{margin-top:24px}.input{background:#23232a;border:2px solid #23232a;border-radius:8px;box-sizing:border-box;color:#fff;font-size:1rem;margin-bottom:6px;outline:none;padding:10px 14px;transition:border .2s;width:100%}.input:focus{border:2px solid #a78bfa}.login-form{align-items:stretch;flex-direction:column}.login-form,.tabs{display:flex;max-width:100%;width:100%}.tabs{box-sizing:border-box;flex-wrap:wrap;gap:12px;justify-content:center;margin-bottom:18px}.tab,.tab-active{max-width:100%;min-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tab-content{max-width:100%;overflow-x:auto}@media (max-width:400px){.popup-container{max-width:98vw;padding:12px 2vw}.tab-content{padding:10px 2px}.tabs{gap:6px}.tab,.tab-active{font-size:.95rem;min-width:70px;padding:6px 8px}}
 
+/* Estilos específicos para a extensão CopyThief */
 * {
   margin: 0;
   padding: 0;
@@ -10,14 +11,33 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: #f8fafc;
   color: #1e293b;
+  min-height: auto;
+  place-items: normal;
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  margin: 0;
+  max-width: none;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+  height: 100%;
 }
 
 .popup-container {
   width: 320px;
   min-height: 400px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  background: #18181b;
+  border-radius: 18px;
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-family: Inter, Arial, sans-serif;
+  margin: 0 auto;
+  max-width: 350px;
+  min-width: 320px;
+  padding: 32px 18px 28px;
   overflow: hidden;
 }
 
@@ -34,7 +54,7 @@ body {
 .loading-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #e2e8f0;
+  border: 3px solid #27272a;
   border-top: 3px solid #a78bfa;
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -47,65 +67,74 @@ body {
 }
 
 .loading-text {
-  color: #64748b;
+  color: #a1a1aa;
   font-size: 14px;
 }
 
 /* Login Section */
 .login-section {
-  padding: 20px;
+  padding: 0;
 }
 
 .login-form {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  max-width: 100%;
 }
 
 .login-form h3 {
   margin-bottom: 20px;
-  color: #1e293b;
+  color: #fff;
   font-size: 18px;
   font-weight: 600;
 }
 
 .input-field {
-  width: 100%;
-  padding: 12px 16px;
-  border: 2px solid #e2e8f0;
+  background: #23232a;
+  border: 2px solid #23232a;
   border-radius: 8px;
-  font-size: 14px;
-  margin-bottom: 12px;
-  transition: border-color 0.2s;
+  box-sizing: border-box;
+  color: #fff;
+  font-size: 1rem;
+  margin-bottom: 6px;
+  outline: none;
+  padding: 10px 14px;
+  transition: border .2s;
+  width: 100%;
 }
 
 .input-field:focus {
-  outline: none;
-  border-color: #a78bfa;
+  border: 2px solid #a78bfa;
 }
 
 .login-btn {
-  width: 100%;
-  padding: 12px 16px;
-  background: #a78bfa;
-  color: white;
+  background: #7c3aed;
+  color: #fff;
+  margin-bottom: 8px;
   border: none;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s;
+  padding: 10px 0;
+  transition: background .2s;
+  width: 100%;
 }
 
 .login-btn:hover {
-  background: #9333ea;
+  background: #a78bfa;
 }
 
 .login-btn:disabled {
-  background: #cbd5e1;
+  background: #3f3f46;
   cursor: not-allowed;
 }
 
 .error-message {
-  color: #ef4444;
+  color: #f87171;
   font-size: 12px;
   margin-top: 8px;
   text-align: left;
@@ -116,15 +145,23 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px;
-  background: linear-gradient(135deg, #a78bfa 0%, #9333ea 100%);
-  color: white;
+  padding: 0 0 20px 0;
+  background: transparent;
+  color: #fff;
 }
 
 .logo {
   display: flex;
   align-items: center;
   gap: 8px;
+  height: auto;
+  padding: 0;
+  transition: none;
+  will-change: auto;
+}
+
+.logo:hover {
+  filter: none;
 }
 
 .logo-icon {
@@ -137,34 +174,37 @@ body {
 }
 
 .logout-btn {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: none;
+  background: #1e293b;
+  border: 1px solid #f87171;
+  color: #f87171;
   padding: 6px 12px;
   border-radius: 6px;
   font-size: 12px;
   cursor: pointer;
   transition: background-color 0.2s;
+  margin-top: 0;
 }
 
 .logout-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: #991b1b;
+  color: #fff;
 }
 
 /* Content */
 .content {
-  padding: 20px;
+  padding: 0;
 }
 
 .user-info {
+  margin-top: 24px;
   margin-bottom: 16px;
   padding: 12px;
-  background: #f1f5f9;
+  background: #27272a;
   border-radius: 8px;
 }
 
 .user-email {
-  color: #64748b;
+  color: #a1a1aa;
   font-size: 14px;
   font-weight: 500;
 }
@@ -178,8 +218,8 @@ body {
   align-items: center;
   gap: 8px;
   padding: 12px;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
+  background: #1e293b;
+  border: 1px solid #334155;
   border-radius: 8px;
 }
 
@@ -188,7 +228,7 @@ body {
 }
 
 .status-text {
-  color: #0369a1;
+  color: #60a5fa;
   font-size: 14px;
   font-weight: 500;
 }
@@ -205,8 +245,8 @@ body {
   justify-content: center;
   gap: 8px;
   padding: 12px 16px;
-  background: #a78bfa;
-  color: white;
+  background: #7c3aed;
+  color: #fff;
   border: none;
   border-radius: 8px;
   font-size: 14px;
@@ -216,7 +256,7 @@ body {
 }
 
 .swipe-btn:hover {
-  background: #9333ea;
+  background: #a78bfa;
 }
 
 .btn-icon {
@@ -237,7 +277,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 8px 0;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #27272a;
 }
 
 .stat:last-child {
@@ -245,21 +285,21 @@ body {
 }
 
 .stat-label {
-  color: #64748b;
+  color: #a1a1aa;
   font-size: 14px;
 }
 
 .stat-value {
-  color: #1e293b;
+  color: #fff;
   font-size: 14px;
   font-weight: 600;
 }
 
 /* Footer */
 .footer {
-  padding: 16px 20px;
-  background: #f8fafc;
-  border-top: 1px solid #e2e8f0;
+  padding: 16px 0 0 0;
+  background: transparent;
+  border-top: 1px solid #27272a;
 }
 
 .dashboard-link {
@@ -273,7 +313,7 @@ body {
 }
 
 .dashboard-link:hover {
-  color: #9333ea;
+  color: #7c3aed;
 }
 
 /* Notifications */
@@ -296,4 +336,12 @@ body {
 
 .notification-error {
   background: #ef4444;
+}
+
+/* Responsive */
+@media (max-width: 400px) {
+  .popup-container {
+    max-width: 98vw;
+    padding: 12px 2vw;
+  }
 } 

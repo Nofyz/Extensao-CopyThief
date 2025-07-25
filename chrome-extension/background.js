@@ -36,6 +36,10 @@ class CopyThiefBackground {
         this.checkAuth().then(sendResponse);
         return true;
       }
+      if (request.action === "getSwipesCount") {
+        this.getSwipesCount().then(sendResponse);
+        return true;
+      }
     });
   }
 
@@ -193,7 +197,7 @@ class CopyThiefBackground {
 
       // Obtém token de acesso
       const { accessToken } = await chrome.storage.local.get(["accessToken"]);
-
+      console.log(swipeData);
       // Prepara dados para a API conforme documentação
       const apiData = {
         title: swipeData.title || "Anúncio sem título",
@@ -204,7 +208,7 @@ class CopyThiefBackground {
         timestamp: swipeData.timestamp,
         tags: swipeData.tags || [],
         contentUrl: swipeData.contentUrl || undefined,
-        thumbnailUrl: swipeData.thumbnailUrl || undefined,
+        thumbnailUrl: swipeData.contentUrl || undefined,
         copyText: swipeData.copyText || undefined,
         callToAction: swipeData.callToAction || undefined,
         landingPageUrl: swipeData.landingPageUrl || undefined,
@@ -250,6 +254,44 @@ class CopyThiefBackground {
       }
     } catch (error) {
       console.error("[CopyThief] Erro ao salvar swipe:", error);
+      return { success: false, error: "Erro de conexão" };
+    }
+  }
+
+  async getSwipesCount() {
+    try {
+      console.log("[CopyThief] Buscando contagem de swipes...");
+
+      // Verifica autenticação
+      const authResult = await this.checkAuth();
+      if (!authResult.authenticated) {
+        return { success: false, error: "Usuário não autenticado" };
+      }
+
+      // Obtém token de acesso
+      const { accessToken } = await chrome.storage.local.get(["accessToken"]);
+
+      // Busca swipes da API
+      const response = await fetch(`${this.apiBaseUrl}/api/swipes`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const swipesCount = data.swipes ? data.swipes.length : 0;
+
+        console.log("[CopyThief] Total de swipes na API:", swipesCount);
+        return { success: true, count: swipesCount };
+      } else {
+        console.error("[CopyThief] Erro ao buscar swipes:", response.status);
+        return { success: false, error: "Erro ao buscar swipes" };
+      }
+    } catch (error) {
+      console.error("[CopyThief] Erro ao buscar contagem de swipes:", error);
       return { success: false, error: "Erro de conexão" };
     }
   }

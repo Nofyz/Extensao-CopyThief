@@ -142,6 +142,7 @@ class PopupManager {
       });
 
       if (response && response.success) {
+        // Atualiza estatísticas após salvar com sucesso
         await this.updateStats();
         this.showSuccess("Anúncio salvo com sucesso!");
       } else {
@@ -155,14 +156,33 @@ class PopupManager {
 
   async updateStats() {
     try {
+      // Busca swipes locais
       const stats = await chrome.storage.local.get(["totalSwipes"]);
+      const localSwipes = stats.totalSwipes || 0;
 
+      // Busca swipes da API
+      const apiResponse = await chrome.runtime.sendMessage({
+        action: "getSwipesCount",
+      });
+
+      const totalSwipesElement = document.getElementById("total-swipes");
+      if (totalSwipesElement) {
+        if (apiResponse.success) {
+          // Mostra swipes da API
+          totalSwipesElement.textContent = apiResponse.count;
+        } else {
+          // Fallback para swipes locais se API falhar
+          totalSwipesElement.textContent = localSwipes;
+        }
+      }
+    } catch (error) {
+      console.error("Falha ao atualizar estatísticas:", error);
+      // Fallback para swipes locais em caso de erro
+      const stats = await chrome.storage.local.get(["totalSwipes"]);
       const totalSwipesElement = document.getElementById("total-swipes");
       if (totalSwipesElement) {
         totalSwipesElement.textContent = stats.totalSwipes || 0;
       }
-    } catch (error) {
-      console.error("Falha ao atualizar estatísticas:", error);
     }
   }
 
@@ -183,6 +203,7 @@ class PopupManager {
       userEmailElement.textContent = user.email;
     }
 
+    // Atualiza estatísticas com dados da API
     this.updateStats();
   }
 
