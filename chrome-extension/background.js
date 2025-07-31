@@ -215,6 +215,7 @@ class CopyThiefBackground {
         adType: swipeData.adType || undefined,
         platformAdId: swipeData.platformAdId || undefined,
         platformUrl: swipeData.platformUrl || undefined,
+        iconUrl: swipeData.iconUrl || undefined,
         metadata: swipeData.metadata || {},
       };
 

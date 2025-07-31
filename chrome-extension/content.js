@@ -13,7 +13,9 @@ function detectAds() {
       (el) =>
         el.textContent &&
         (el.textContent.trim().includes("Ver detalhes do anúncio") ||
-          el.textContent.trim().includes("Ver resumo"))
+          el.textContent.trim().includes("Ver resumo") ||
+          el.textContent.trim().includes("See ad details") ||
+          el.textContent.trim().includes("See summary details"))
     );
 
     if (detalhesBtn && !div.querySelector(".copythief-btn")) {
@@ -98,6 +100,7 @@ function handleSwipe(adElement, index) {
     adType: null,
     platformAdId: null,
     platformUrl: null,
+    iconUrl: null,
     metadata: {},
     tags: [],
   };
@@ -153,31 +156,113 @@ function handleSwipe(adElement, index) {
   if (!adData.adType) {
     adData.adType = "IMAGE";
   }
+  // Busca o ID da biblioteca no span com classe específica
+  const libIdSpan = adElement.querySelector(
+    "span.x8t9es0.xw23nyj.xo1l8bm.x63nzvj.x108nfp6.xq9mrsl.x1h4wwuj.xeuugli"
+  );
+  if (libIdSpan && libIdSpan.textContent) {
+    const match =
+      libIdSpan.textContent.match(/Library ID: (\d+)/) ||
+      libIdSpan.textContent.match(/ID da biblioteca: (\d+)/);
+    if (match && match[1]) {
+      adData.platformAdId = match[1];
+    }
+  }
 
   // Copy text (mesmo que description)
   adData.copyText = adData.description;
 
-  // Call to action
-  let ctaBtn = Array.from(adElement.querySelectorAll("div, button, a")).find(
-    (el) =>
-      el.textContent &&
-      (el.textContent.toLowerCase().includes("saiba mais") ||
-        el.textContent.toLowerCase().includes("learn more") ||
-        el.textContent.toLowerCase().includes("shop now"))
+  // Call to action (botão de call to action do ad)
+  // Procura especificamente por botões que ficam ao final do anúncio
+  let ctaBtn = null;
+
+  // Primeiro, tenta encontrar botões com role="button" que são típicos do Facebook
+  const allButtons = Array.from(
+    adElement.querySelectorAll(
+      'div[role="button"], button[role="button"], a[role="button"]'
+    )
   );
-  if (ctaBtn && ctaBtn.textContent) {
-    adData.callToAction = ctaBtn.textContent.trim();
+
+  // Filtra botões que têm estrutura típica de CTA (com span ou div filho)
+  const ctaButtons = allButtons.filter((el) => {
+    const hasChildElements = el.querySelector("span, div");
+    const hasText = el.textContent && el.textContent.trim().length > 0;
+    const isNotProfileButton =
+      !el.textContent?.toLowerCase().includes("profile") &&
+      !el.textContent?.toLowerCase().includes("perfil") &&
+      !el.textContent?.toLowerCase().includes("avatar");
+
+    return hasChildElements && hasText && isNotProfileButton;
+  });
+
+  // Pega o último botão encontrado (que geralmente é o CTA ao final do anúncio)
+  if (ctaButtons.length > 0) {
+    ctaBtn = ctaButtons[ctaButtons.length - 1];
   }
 
-  // Landing page URL
-  const landingLink = adElement.querySelector(
-    'a[target="_blank"][href*="l.facebook.com/l.php?u="]'
-  );
-  if (landingLink && landingLink.href) {
-    const urlMatch = decodeURIComponent(
-      landingLink.href.match(/u=([^&]+)/)?.[1] || ""
+  // Se não encontrou botão com role="button", tenta encontrar por texto conhecido
+  if (!ctaBtn) {
+    ctaBtn = Array.from(adElement.querySelectorAll("div, button, a")).find(
+      (el) =>
+        el.textContent &&
+        (el.textContent.toLowerCase().includes("saiba mais") ||
+          el.textContent.toLowerCase().includes("learn more") ||
+          el.textContent.toLowerCase().includes("shop now") ||
+          el.textContent.toLowerCase().includes("comprar agora") ||
+          el.textContent.toLowerCase().includes("inscrever-se") ||
+          el.textContent.toLowerCase().includes("sign up") ||
+          el.textContent.toLowerCase().includes("ver mais") ||
+          el.textContent.toLowerCase().includes("see more") ||
+          el.textContent.toLowerCase().includes("baixar") ||
+          el.textContent.toLowerCase().includes("download") ||
+          el.textContent.toLowerCase().includes("experimentar") ||
+          el.textContent.toLowerCase().includes("try now") ||
+          el.textContent.toLowerCase().includes("visit") ||
+          el.textContent.toLowerCase().includes("visitar"))
     );
-    adData.landingPageUrl = urlMatch;
+  }
+
+  if (ctaBtn && ctaBtn.textContent) {
+    adData.callToAction = ctaBtn.textContent.trim();
+  } else {
+    adData.callToAction = undefined; // Se não encontrar, fica vazio
+  }
+
+  // Landing page URL (página de redirecionamento do ad)
+  // Pega o link do botão de call to action
+  if (ctaBtn) {
+    // Se o próprio botão é um link
+    if (ctaBtn.tagName === "A" && ctaBtn.href) {
+      adData.landingPageUrl = ctaBtn.href;
+    } else {
+      // Se não é um link, procura por um link filho do botão
+      const linkInsideButton = ctaBtn.querySelector("a[href]");
+      if (linkInsideButton && linkInsideButton.href) {
+        adData.landingPageUrl = linkInsideButton.href;
+      } else {
+        // Se não encontrar link no botão, procura por qualquer link no anúncio
+        const landingPageLink = adElement.querySelector(
+          'a[target="_blank"][href*="l.facebook.com/l.php?u="]'
+        );
+        if (landingPageLink && landingPageLink.href) {
+          const urlMatch = decodeURIComponent(
+            landingPageLink.href.match(/u=([^&]+)/)?.[1] || ""
+          );
+          adData.landingPageUrl = urlMatch;
+        }
+      }
+    }
+  } else {
+    // Se não encontrou botão de CTA, procura por qualquer link no anúncio
+    const landingPageLink = adElement.querySelector(
+      'a[target="_blank"][href*="l.facebook.com/l.php?u="]'
+    );
+    if (landingPageLink && landingPageLink.href) {
+      const urlMatch = decodeURIComponent(
+        landingPageLink.href.match(/u=([^&]+)/)?.[1] || ""
+      );
+      adData.landingPageUrl = urlMatch;
+    }
   }
 
   // Platform Ad ID
@@ -192,6 +277,25 @@ function handleSwipe(adElement, index) {
   const adLink = adElement.querySelector('a[target="_blank"]');
   if (adLink && adLink.href) {
     adData.platformUrl = adLink.href;
+  }
+
+  // Icon URL (foto de perfil do anunciante)
+  const profileImage = adElement.querySelector(
+    'img[alt*="profile"], img[alt*="perfil"], img[alt*="avatar"], img[alt*="Profile"], img[alt*="Perfil"]'
+  );
+  if (profileImage && profileImage.src) {
+    adData.iconUrl = profileImage.src;
+  } else {
+    // Tenta encontrar a primeira imagem pequena (geralmente é o avatar)
+    const smallImages = Array.from(adElement.querySelectorAll("img")).filter(
+      (img) => {
+        const rect = img.getBoundingClientRect();
+        return rect.width <= 50 && rect.height <= 50; // Imagens pequenas são geralmente avatars
+      }
+    );
+    if (smallImages.length > 0) {
+      adData.iconUrl = smallImages[0].src;
+    }
   }
 
   // Metadata (veiculação, tempo ativo)
@@ -212,25 +316,46 @@ function handleSwipe(adElement, index) {
     );
   }
 
-  console.log("[CopyThief] Dados coletados:", adData);
-
+  console.log(adData);
   // Envia para o background script
-  chrome.runtime.sendMessage(
-    {
-      action: "saveSwipe",
-      data: adData,
-    },
-    (response) => {
-      console.log("[CopyThief] Resposta do background:", response);
-      if (response && response.success) {
-        showNotification("Swipe salvo com sucesso!", "success");
-      } else {
-        const errorMsg =
-          response && response.error ? response.error : "Erro ao salvar swipe";
-        showNotification(`Erro: ${errorMsg}`, "error");
+  try {
+    chrome.runtime.sendMessage(
+      {
+        action: "saveSwipe",
+        data: adData,
+      },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          console.error(
+            "[CopyThief] Erro ao enviar dados:",
+            chrome.runtime.lastError
+          );
+          showNotification("Erro de conexão com a extensão", "error");
+          return;
+        }
+        console.log("[CopyThief] Resposta do background:", response);
+        if (response && response.success) {
+          showNotification("Swipe salvo com sucesso!", "success");
+        } else {
+          const errorMsg =
+            response && response.error
+              ? response.error
+              : "Erro ao salvar swipe";
+          showNotification(`Erro: ${errorMsg}`, "error");
+        }
       }
+    );
+  } catch (error) {
+    console.error("[CopyThief] Erro ao enviar mensagem:", error);
+    showNotification("Erro de conexão com a extensão", "error");
+    // Se a extensão foi invalidada, recarrega a página para reinicializar
+    if (error.message.includes("Extension context invalidated")) {
+      console.log("[CopyThief] Extensão invalidada, recarregando página...");
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     }
-  );
+  }
 }
 
 function showNotification(message, type = "info") {
@@ -275,16 +400,21 @@ function showNotification(message, type = "info") {
 
 // Listener para mensagens do popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === "swipeAd") {
-    const ads = document.querySelectorAll(
-      '[data-testid="ad_card"], .adsmanager-ad-card, [role="article"]'
-    );
-    if (ads.length > 0) {
-      handleSwipe(ads[0], 0);
-      sendResponse({ success: true });
-    } else {
-      sendResponse({ success: false, error: "Nenhum anúncio detectado" });
+  try {
+    if (request.action === "swipeAd") {
+      const ads = document.querySelectorAll(
+        '[data-testid="ad_card"], .adsmanager-ad-card, [role="article"]'
+      );
+      if (ads.length > 0) {
+        handleSwipe(ads[0], 0);
+        sendResponse({ success: true });
+      } else {
+        sendResponse({ success: false, error: "Nenhum anúncio detectado" });
+      }
     }
+  } catch (error) {
+    console.error("[CopyThief] Erro no listener de mensagens:", error);
+    sendResponse({ success: false, error: "Erro interno da extensão" });
   }
 });
 
