@@ -6,7 +6,7 @@ console.log("[CopyThief] Background script carregado");
 class CopyThiefBackground {
   constructor() {
     // Configuração da extensão
-    this.apiBaseUrl = "http://localhost:3000"; // URL da API
+    this.apiBaseUrl = "https://copythief.ai"; // URL da API
     this.debug = true;
     this.requestTimeout = 10000;
 

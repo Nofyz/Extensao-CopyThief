@@ -32,7 +32,7 @@ class SwipeAPI {
 
   constructor() {
     // Usar a URL base do webapp
-    this.baseUrl = 'http://localhost:3000';
+    this.baseUrl = 'https://copythief.ai';
   }
 
   private async getAuthHeaders(): Promise<HeadersInit> {

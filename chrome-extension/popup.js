@@ -40,7 +40,7 @@ class PopupManager {
     const dashboardLink = document.querySelector(".dashboard-link");
     if (dashboardLink) {
       dashboardLink.addEventListener("click", () => {
-        chrome.tabs.create({ url: "http://localhost:3000/dashboard" });
+        chrome.tabs.create({ url: "https://copythief.ai/dashboard" });
       });
     }
 

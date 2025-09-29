@@ -22,7 +22,7 @@ Extensão simples para salvar anúncios do Facebook, TikTok e Google Ads.
 Antes de usar, configure a URL da API no arquivo `background.js`:
 
 ```javascript
-this.apiBaseUrl = "http://localhost:3000"; // Mude para sua URL da API
+this.apiBaseUrl = "https://copythief.ai"; // Mude para sua URL da API
 ```
 
 ## Uso
@@ -60,6 +60,6 @@ A extensão usa os seguintes endpoints:
 
 Para desenvolvimento local:
 
-1. Configure a API para rodar em `http://localhost:3000`
+1. Configure a API para rodar em `https://copythief.ai`
 2. Recarregue a extensão após mudanças
 3. Use o DevTools da extensão para debug 

@@ -11,7 +11,7 @@
     "https://www.facebook.com/*",
     "https://www.tiktok.com/*",
     "https://ads.google.com/*",
-    "http://localhost:3000/*",
+    "https://copythief.ai/*",
     "https://*.supabase.co/*"
   ],
   "action": {

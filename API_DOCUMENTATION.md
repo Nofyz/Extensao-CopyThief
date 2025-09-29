@@ -668,7 +668,7 @@ cd apps/web
 npm run dev
 ```
 
-The API will be available at `http://localhost:3000/api`
+The API will be available at `https://copythief.ai/api`
 
 ### Testing
 
@@ -681,7 +681,7 @@ API endpoints can be tested using tools like:
 
 **Login:**
 ```bash
-curl -X POST http://localhost:3000/api/auth/login \
+curl -X POST https://copythief.ai/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "user@example.com",
@@ -691,7 +691,7 @@ curl -X POST http://localhost:3000/api/auth/login \
 
 **Refresh Token:**
 ```bash
-curl -X POST http://localhost:3000/api/auth/refresh \
+curl -X POST https://copythief.ai/api/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{
     "refresh_token": "YOUR_REFRESH_TOKEN"
@@ -700,19 +700,19 @@ curl -X POST http://localhost:3000/api/auth/refresh \
 
 **Check session:**
 ```bash
-curl -X GET http://localhost:3000/api/auth/me \
+curl -X GET https://copythief.ai/api/auth/me \
   -H "Authorization: Bearer <supabase-session-token>"
 ```
 
 **Logout:**
 ```bash
-curl -X POST http://localhost:3000/api/auth/logout \
+curl -X POST https://copythief.ai/api/auth/logout \
   -H "Authorization: Bearer <supabase-session-token>"
 ```
 
 **Create a swipe:**
 ```bash
-curl -X POST http://localhost:3000/api/swipes \
+curl -X POST https://copythief.ai/api/swipes \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <supabase-session-token>" \
   -d '{
@@ -725,7 +725,7 @@ curl -X POST http://localhost:3000/api/swipes \
 
 **Get all swipes (personal account):**
 ```bash
-curl -X GET http://localhost:3000/api/swipes \
+curl -X GET https://copythief.ai/api/swipes \
   -H "Authorization: Bearer <supabase-session-token>"
 ```
 
@@ -739,7 +739,7 @@ curl -X GET http://localhost:3000/api/swipes \
 
 **Health check:**
 ```bash
-curl -X GET http://localhost:3000/healthcheck
+curl -X GET https://copythief.ai/healthcheck
 ```
 
 ## Changelog
