@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "CopyThief",
   "version": "1.0.0",
-  "description": "Salve anúncios do Facebook, TikTok e Google",
+  "description": "Save ads from Facebook, TikTok and Google",
   "permissions": [
     "activeTab",
     "storage"

@@ -1,37 +1,290 @@
-/* Estilos para os botões do CopyThief */
+/* CopyThief - Modern Content Buttons */
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
+:root {
+  --bg-primary: #010101;
+  --bg-secondary: #101117;
+  --accent-primary: #ffdd57;
+  --accent-secondary: #ffed4e;
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --border-primary: #27272a;
+  --border-secondary: #3f3f46;
+  --success: #10b981;
+  --error: #ef4444;
+  --warning: #f59e0b;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+/* Main CopyThief Button */
 .copythief-btn {
   margin-top: 0 !important;
   width: 100% !important;
   max-width: 100% !important;
-  background: #a78bfa !important;
-  color: #fff !important;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)) !important;
+  color: var(--bg-primary) !important;
   border: none !important;
-  border-radius: 8px !important;
-  padding: 10px 0 !important;
-  font-weight: 600 !important;
+  border-radius: var(--radius-lg) !important;
+  padding: 12px 16px !important;
+  font-weight: 700 !important;
   cursor: pointer !important;
-  font-size: 1rem !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-  display: block !important;
+  font-size: 14px !important;
+  box-shadow: var(--shadow-md) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
   opacity: 1 !important;
   position: relative !important;
-  z-index: 10 !important;
-  animation: none !important;
-  transition: background-color 0.2s !important;
+  z-index: 1000 !important;
+  animation: slideInUp 0.3s ease-out !important;
+  transition: all 0.2s ease !important;
   pointer-events: auto !important;
   visibility: visible !important;
   box-sizing: border-box !important;
+  font-family: 'Inter', sans-serif !important;
+  letter-spacing: -0.2px !important;
+  text-decoration: none !important;
+  outline: none !important;
+  overflow: hidden !important;
+}
+
+.copythief-btn::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: -100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent) !important;
+  transition: left 0.5s ease !important;
 }
 
 .copythief-btn:hover {
-  background: #9333ea !important;
+  background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary)) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: var(--shadow-lg) !important;
+  filter: brightness(1.05) !important;
 }
 
+.copythief-btn:hover::before {
+  left: 100% !important;
+}
+
+.copythief-btn:active {
+  transform: translateY(0) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+.copythief-btn:focus {
+  outline: 2px solid var(--accent-primary) !important;
+  outline-offset: 2px !important;
+}
+
+/* Button Icon */
+.copythief-btn .btn-icon {
+  font-size: 16px !important;
+  display: inline-block !important;
+  animation: pulse 2s infinite !important;
+}
+
+/* Button Text */
+.copythief-btn .btn-text {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.2px !important;
+}
+
+/* Loading State */
+.copythief-btn.loading {
+  background: var(--border-primary) !important;
+  color: var(--text-muted) !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.copythief-btn.loading::before {
+  display: none !important;
+}
+
+.copythief-btn.loading .btn-icon {
+  animation: spin 1s linear infinite !important;
+}
+
+/* Success State */
+.copythief-btn.success {
+  background: var(--success) !important;
+  color: var(--text-primary) !important;
+}
+
+.copythief-btn.success .btn-icon::before {
+  content: '✓' !important;
+}
+
+/* Error State */
+.copythief-btn.error {
+  background: var(--error) !important;
+  color: var(--text-primary) !important;
+}
+
+.copythief-btn.error .btn-icon::before {
+  content: '✕' !important;
+}
+
+/* Wrapper */
 .copythief-wrapper {
   display: flex !important;
   flex-direction: column !important;
   align-items: stretch !important;
-  gap: 8px !important;
+  gap: 12px !important;
   width: 100% !important;
-} 
+  margin: 8px 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Container for multiple buttons */
+.copythief-container {
+  position: relative !important;
+  z-index: 1000 !important;
+  margin: 12px 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Badge for saved items */
+.copythief-badge {
+  position: absolute !important;
+  top: -8px !important;
+  right: -8px !important;
+  background: var(--success) !important;
+  color: var(--text-primary) !important;
+  border-radius: 50% !important;
+  width: 20px !important;
+  height: 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  box-shadow: var(--shadow-md) !important;
+  animation: bounceIn 0.5s ease-out !important;
+}
+
+/* Animations */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .copythief-btn {
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+  }
+  
+  .copythief-btn .btn-icon {
+    font-size: 14px !important;
+  }
+  
+  .copythief-btn .btn-text {
+    font-size: 13px !important;
+  }
+}
+
+/* Dark mode compatibility */
+@media (prefers-color-scheme: dark) {
+  .copythief-btn {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  }
+  
+  .copythief-btn:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .copythief-btn {
+    border: 2px solid var(--text-primary) !important;
+  }
+  
+  .copythief-btn:focus {
+    outline: 3px solid var(--accent-primary) !important;
+    outline-offset: 3px !important;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .copythief-btn {
+    animation: none !important;
+    transition: none !important;
+  }
+  
+  .copythief-btn .btn-icon {
+    animation: none !important;
+  }
+  
+  .copythief-badge {
+    animation: none !important;
+  }
+  
+  .copythief-btn::before {
+    display: none !important;
+  }
+}

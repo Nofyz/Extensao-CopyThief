@@ -76,7 +76,7 @@ class CopyThiefBackground {
       }
     } catch (error) {
       console.error("[CopyThief] Erro no login:", error);
-      return { success: false, error: "Erro de conexão" };
+      return { success: false, error: "Connection error" };
     }
   }
 
@@ -192,7 +192,7 @@ class CopyThiefBackground {
       // Verifica autenticação
       const authResult = await this.checkAuth();
       if (!authResult.authenticated) {
-        return { success: false, error: "Usuário não autenticado" };
+        return { success: false, error: "User not authenticated" };
       }
 
       // Obtém token de acesso
@@ -200,7 +200,7 @@ class CopyThiefBackground {
       console.log(swipeData);
       // Prepara dados para a API conforme documentação
       const apiData = {
-        title: swipeData.title || "Anúncio sem título",
+        title: swipeData.title || "Untitled ad",
         platform: swipeData.platform,
         description: swipeData.description || "",
         url: swipeData.url,
@@ -255,7 +255,7 @@ class CopyThiefBackground {
       }
     } catch (error) {
       console.error("[CopyThief] Erro ao salvar swipe:", error);
-      return { success: false, error: "Erro de conexão" };
+      return { success: false, error: "Connection error" };
     }
   }
 
@@ -266,7 +266,7 @@ class CopyThiefBackground {
       // Verifica autenticação
       const authResult = await this.checkAuth();
       if (!authResult.authenticated) {
-        return { success: false, error: "Usuário não autenticado" };
+        return { success: false, error: "User not authenticated" };
       }
 
       // Obtém token de acesso
@@ -293,7 +293,7 @@ class CopyThiefBackground {
       }
     } catch (error) {
       console.error("[CopyThief] Erro ao buscar contagem de swipes:", error);
-      return { success: false, error: "Erro de conexão" };
+      return { success: false, error: "Connection error" };
     }
   }
 }

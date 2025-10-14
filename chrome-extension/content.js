@@ -12,8 +12,8 @@ function detectAds() {
     ).find(
       (el) =>
         el.textContent &&
-        (el.textContent.trim().includes("Ver detalhes do anúncio") ||
-          el.textContent.trim().includes("Ver resumo") ||
+        (el.textContent.trim().includes("See ad details") ||
+          el.textContent.trim().includes("See summary") ||
           el.textContent.trim().includes("See ad details") ||
           el.textContent.trim().includes("See summary details"))
     );
@@ -45,7 +45,7 @@ function addSwipeButton(adElement, detalhesBtn, index) {
 
   const button = document.createElement("button");
   button.className = "copythief-btn";
-  button.textContent = "💾 Salvar no CopyThief";
+  button.textContent = "💾 Save to CopyThief";
   button.style.cssText = `
     margin-top: 0 !important;
     width: 100% !important;
@@ -78,7 +78,7 @@ function addSwipeButton(adElement, detalhesBtn, index) {
 
   if (!parent.querySelector(".copythief-btn")) {
     parent.appendChild(button);
-    console.log("[CopyThief] Botão de swipe inserido.");
+    console.log("[CopyThief] Swipe button inserted.");
   }
 }
 
@@ -300,18 +300,18 @@ function handleSwipe(adElement, index) {
 
   // Metadata (veiculação, tempo ativo)
   const veicEl = Array.from(adElement.querySelectorAll("span")).find(
-    (el) => el.textContent && el.textContent.includes("Veiculação iniciada")
+    (el) => el.textContent && el.textContent.includes("Started running")
   );
   if (veicEl && veicEl.textContent) {
     const [veiculacao, tempo_ativo] = veicEl.textContent
       .split("·")
       .map((s) => s.trim());
     adData.metadata.veiculacao = veiculacao?.replace(
-      "Veiculação iniciada em ",
+      "Started running on ",
       ""
     );
     adData.metadata.tempo_ativo = tempo_ativo?.replace(
-      "Tempo total ativo: ",
+      "Total active time: ",
       ""
     );
   }
@@ -330,7 +330,7 @@ function handleSwipe(adElement, index) {
             "[CopyThief] Erro ao enviar dados:",
             chrome.runtime.lastError
           );
-          showNotification("Erro de conexão com a extensão", "error");
+          showNotification("Extension connection error", "error");
           return;
         }
         console.log("[CopyThief] Resposta do background:", response);
@@ -347,10 +347,10 @@ function handleSwipe(adElement, index) {
     );
   } catch (error) {
     console.error("[CopyThief] Erro ao enviar mensagem:", error);
-    showNotification("Erro de conexão com a extensão", "error");
+    showNotification("Extension connection error", "error");
     // Se a extensão foi invalidada, recarrega a página para reinicializar
     if (error.message.includes("Extension context invalidated")) {
-      console.log("[CopyThief] Extensão invalidada, recarregando página...");
+      console.log("[CopyThief] Extension invalidated, reloading page...");
       setTimeout(() => {
         window.location.reload();
       }, 2000);
@@ -409,12 +409,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         handleSwipe(ads[0], 0);
         sendResponse({ success: true });
       } else {
-        sendResponse({ success: false, error: "Nenhum anúncio detectado" });
+        sendResponse({ success: false, error: "No ads detected" });
       }
     }
   } catch (error) {
     console.error("[CopyThief] Erro no listener de mensagens:", error);
-    sendResponse({ success: false, error: "Erro interno da extensão" });
+    sendResponse({ success: false, error: "Internal extension error" });
   }
 });
 

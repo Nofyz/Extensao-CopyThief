@@ -12,8 +12,8 @@ class PopupManager {
       await this.checkAuthStatus();
       this.hideLoading();
     } catch (error) {
-      console.error("Falha na inicialização do popup:", error);
-      this.showError("Falha ao inicializar extensão");
+      console.error("Popup initialization failed:", error);
+      this.showError("Failed to initialize extension");
     }
   }
 
@@ -71,7 +71,7 @@ class PopupManager {
         this.showLoginSection();
       }
     } catch (error) {
-      console.error("Erro ao verificar autenticação:", error);
+      console.error("Error checking authentication:", error);
       this.showLoginSection();
     }
   }
@@ -83,12 +83,12 @@ class PopupManager {
     const errorDiv = document.getElementById("login-error");
 
     if (!email || !password) {
-      this.showLoginError("Preencha email e senha");
+      this.showLoginError("Please fill in email and password");
       return;
     }
 
-    // Mostra loading
-    loginBtn.textContent = "Entrando...";
+    // Show loading
+    loginBtn.textContent = "Signing in...";
     loginBtn.disabled = true;
     this.hideLoginError();
 
@@ -101,13 +101,13 @@ class PopupManager {
       if (response.success) {
         this.showMainSection(response.user);
       } else {
-        this.showLoginError(response.error || "Erro no login");
+        this.showLoginError(response.error || "Login error");
       }
     } catch (error) {
       console.error("Erro no login:", error);
-      this.showLoginError("Erro de conexão");
+      this.showLoginError("Connection error");
     } finally {
-      loginBtn.textContent = "Entrar";
+      loginBtn.textContent = "Sign In";
       loginBtn.disabled = false;
     }
   }
@@ -119,7 +119,7 @@ class PopupManager {
         this.showLoginSection();
       }
     } catch (error) {
-      console.error("Erro no logout:", error);
+      console.error("Logout error:", error);
     }
   }
 
@@ -132,7 +132,7 @@ class PopupManager {
       });
 
       if (!tab?.id) {
-        this.showError("Nenhuma aba ativa encontrada");
+        this.showError("No active tab found");
         return;
       }
 
@@ -144,13 +144,13 @@ class PopupManager {
       if (response && response.success) {
         // Atualiza estatísticas após salvar com sucesso
         await this.updateStats();
-        this.showSuccess("Anúncio salvo com sucesso!");
+        this.showSuccess("Ad saved successfully!");
       } else {
-        this.showError(response?.error || "Falha ao salvar anúncio");
+        this.showError(response?.error || "Failed to save ad");
       }
     } catch (error) {
-      console.error("Falha no swipe:", error);
-      this.showError("Nenhum anúncio detectado nesta página");
+      console.error("Swipe failed:", error);
+      this.showError("No ads detected on this page");
     }
   }
 
@@ -176,7 +176,7 @@ class PopupManager {
         }
       }
     } catch (error) {
-      console.error("Falha ao atualizar estatísticas:", error);
+      console.error("Failed to update statistics:", error);
       // Fallback para swipes locais em caso de erro
       const stats = await chrome.storage.local.get(["totalSwipes"]);
       const totalSwipesElement = document.getElementById("total-swipes");
