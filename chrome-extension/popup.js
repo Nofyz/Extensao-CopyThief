@@ -24,25 +24,28 @@ class PopupManager {
       loginBtn.addEventListener("click", () => this.handleLogin());
     }
 
+    // Google Login
+    const googleLoginBtn = document.getElementById("google-login-btn");
+    if (googleLoginBtn) {
+      googleLoginBtn.addEventListener("click", () => this.handleGoogleLogin());
+    }
+
     // Logout
     const logoutBtn = document.getElementById("logout-btn");
     if (logoutBtn) {
       logoutBtn.addEventListener("click", () => this.handleLogout());
     }
 
-    // Swipe button
-    const swipeBtn = document.getElementById("swipe-btn");
-    if (swipeBtn) {
-      swipeBtn.addEventListener("click", () => this.handleSwipe());
-    }
 
-    // Dashboard link
-    const dashboardLink = document.querySelector(".dashboard-link");
-    if (dashboardLink) {
-      dashboardLink.addEventListener("click", () => {
-        chrome.tabs.create({ url: "https://copythief.ai/dashboard" });
+
+    // Platform buttons
+    const platformBtns = document.querySelectorAll(".platform-btn");
+    platformBtns.forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const platform = e.currentTarget.getAttribute("data-platform");
+        this.handlePlatformClick(platform);
       });
-    }
+    });
 
     // Enter key no login
     const emailInput = document.getElementById("email");
@@ -112,6 +115,88 @@ class PopupManager {
     }
   }
 
+  async handleGoogleLogin() {
+    const googleLoginBtn = document.getElementById("google-login-btn");
+    const originalText = googleLoginBtn.querySelector('.btn-text').textContent;
+    
+    // Show loading
+    googleLoginBtn.querySelector('.btn-text').textContent = "Opening...";
+    googleLoginBtn.disabled = true;
+    this.hideLoginError();
+
+    try {
+      // Abre uma nova aba para a página de login
+      const authUrl = await chrome.runtime.sendMessage({
+        action: "getGoogleAuthUrl"
+      });
+
+      if (authUrl.success) {
+        // Abre a URL de autenticação do Google em uma nova aba
+        chrome.tabs.create({ url: authUrl.url });
+        
+        // Mostra mensagem informativa
+        this.showSuccess("Complete Google login in the new tab, then return to this extension");
+        
+        // Monitora o retorno da autenticação
+        this.monitorGoogleAuth();
+      } else {
+        this.showLoginError(authUrl.error || "Failed to initiate Google login");
+      }
+    } catch (error) {
+      console.error("Google login error:", error);
+      this.showLoginError("Connection error");
+    } finally {
+      googleLoginBtn.querySelector('.btn-text').textContent = originalText;
+      googleLoginBtn.disabled = false;
+    }
+  }
+
+  async monitorGoogleAuth() {
+    // Verifica periodicamente se o usuário foi autenticado
+    const checkAuth = async () => {
+      try {
+        // Primeiro tenta sincronizar com o website
+        const syncResponse = await chrome.runtime.sendMessage({
+          action: "syncAuthFromWebsite",
+        });
+
+        if (syncResponse.success) {
+          this.showMainSection(syncResponse.user);
+          return true;
+        }
+
+        // Se não conseguiu sincronizar, verifica o auth local
+        const response = await chrome.runtime.sendMessage({
+          action: "checkAuth",
+        });
+
+        if (response.authenticated) {
+          this.showMainSection(response.user);
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error("Error checking auth status:", error);
+        return false;
+      }
+    };
+
+    // Verifica a cada 2 segundos por até 30 segundos
+    let attempts = 0;
+    const maxAttempts = 15;
+    
+    const interval = setInterval(async () => {
+      attempts++;
+      
+      if (await checkAuth() || attempts >= maxAttempts) {
+        clearInterval(interval);
+        if (attempts >= maxAttempts) {
+          this.showLoginError("Login timeout. Please try again.");
+        }
+      }
+    }, 2000);
+  }
+
   async handleLogout() {
     try {
       const response = await chrome.runtime.sendMessage({ action: "logout" });
@@ -123,34 +208,15 @@ class PopupManager {
     }
   }
 
-  async handleSwipe() {
-    try {
-      // Get current active tab
-      const [tab] = await chrome.tabs.query({
-        active: true,
-        currentWindow: true,
-      });
+  handlePlatformClick(platform) {
+    const platformUrls = {
+      meta: "https://www.facebook.com/ads/library/",
+      tiktok: "https://ads.tiktok.com/marketing_api/docs"
+    };
 
-      if (!tab?.id) {
-        this.showError("No active tab found");
-        return;
-      }
-
-      // Send message to content script
-      const response = await chrome.tabs.sendMessage(tab.id, {
-        action: "swipeAd",
-      });
-
-      if (response && response.success) {
-        // Atualiza estatísticas após salvar com sucesso
-        await this.updateStats();
-        this.showSuccess("Ad saved successfully!");
-      } else {
-        this.showError(response?.error || "Failed to save ad");
-      }
-    } catch (error) {
-      console.error("Swipe failed:", error);
-      this.showError("No ads detected on this page");
+    const url = platformUrls[platform];
+    if (url) {
+      chrome.tabs.create({ url });
     }
   }
 
@@ -195,12 +261,12 @@ class PopupManager {
   showMainSection(user) {
     document.getElementById("loading-section").style.display = "none";
     document.getElementById("login-section").style.display = "none";
-    document.getElementById("main-section").style.display = "block";
+    document.getElementById("main-section").style.display = "flex";
 
     // Mostra email do usuário
-    const userEmailElement = document.getElementById("user-email");
-    if (userEmailElement && user) {
-      userEmailElement.textContent = user.email;
+    const emailAddressElement = document.querySelector(".email-address");
+    if (emailAddressElement && user) {
+      emailAddressElement.textContent = user.email;
     }
 
     // Atualiza estatísticas com dados da API

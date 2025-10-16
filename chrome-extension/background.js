@@ -40,6 +40,14 @@ class CopyThiefBackground {
         this.getSwipesCount().then(sendResponse);
         return true;
       }
+      if (request.action === "getGoogleAuthUrl") {
+        this.getGoogleAuthUrl().then(sendResponse);
+        return true;
+      }
+      if (request.action === "syncAuthFromWebsite") {
+        this.syncAuthFromWebsite().then(sendResponse);
+        return true;
+      }
     });
   }
 
@@ -293,6 +301,89 @@ class CopyThiefBackground {
       }
     } catch (error) {
       console.error("[CopyThief] Erro ao buscar contagem de swipes:", error);
+      return { success: false, error: "Connection error" };
+    }
+  }
+
+  async getGoogleAuthUrl() {
+    try {
+      console.log("[CopyThief] Gerando URL de autenticação Google via API...");
+
+      // Usa a API do Supabase para gerar a URL de autenticação Google
+      const response = await fetch(`${this.apiBaseUrl}/api/auth/google`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          redirectTo: `${this.apiBaseUrl}/auth/callback`
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("[CopyThief] URL de autenticação gerada:", data.url);
+        return { success: true, url: data.url };
+      } else {
+        const errorData = await response.json();
+        console.error("[CopyThief] Erro ao gerar URL de autenticação:", response.status, errorData);
+        return { success: false, error: errorData.error || "Failed to generate auth URL" };
+      }
+    } catch (error) {
+      console.error("[CopyThief] Erro ao gerar URL de autenticação:", error);
+      return { success: false, error: "Connection error" };
+    }
+  }
+
+  async syncAuthFromWebsite() {
+    try {
+      console.log("[CopyThief] Sincronizando autenticação do website...");
+
+      // Tenta obter os tokens diretamente do callback do OAuth
+      // Primeiro, verifica se há uma sessão ativa no website
+      const response = await fetch(`${this.apiBaseUrl}/api/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include', // Inclui cookies da sessão
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success && data.data && data.data.session) {
+          // Obtém informações do usuário
+          const userResponse = await fetch(`${this.apiBaseUrl}/api/auth/me`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${data.data.session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          let user = null;
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            user = userData.data.user;
+          }
+
+          // Salva os tokens no storage da extensão
+          await chrome.storage.local.set({
+            accessToken: data.data.session.access_token,
+            refreshToken: data.data.session.refresh_token,
+            expiresAt: data.data.session.expires_at,
+            user: user || { email: 'user@example.com' }, // Fallback se não conseguir obter dados do usuário
+          });
+
+          console.log("[CopyThief] Autenticação sincronizada com sucesso");
+          return { success: true, user: user || { email: 'user@example.com' } };
+        }
+      }
+
+      return { success: false, error: "No active session found" };
+    } catch (error) {
+      console.error("[CopyThief] Erro ao sincronizar autenticação:", error);
       return { success: false, error: "Connection error" };
     }
   }

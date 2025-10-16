@@ -12,7 +12,8 @@
     "https://www.tiktok.com/*",
     "https://ads.google.com/*",
     "https://copythief.ai/*",
-    "https://*.supabase.co/*"
+    "https://*.supabase.co/*",
+    "https://accounts.google.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
