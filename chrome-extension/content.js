@@ -5,7 +5,28 @@ console.log("[CopyThief] Content script carregado");
 
 // Detecta anúncios do Facebook Ads Library
 function detectAds() {
-  const allDivs = document.querySelectorAll("div.xh8yej3");
+  console.log("[CopyThief] Detectando anúncios...");
+  
+  // Procura por diferentes seletores possíveis para os cards de anúncios
+  const possibleSelectors = [
+    "div.xh8yej3",
+    "div[data-testid*='ad']",
+    "div[role='article']",
+    "div[class*='ad']",
+    "div[class*='card']"
+  ];
+  
+  let allDivs = [];
+  possibleSelectors.forEach(selector => {
+    const elements = document.querySelectorAll(selector);
+    console.log(`[CopyThief] Seletor ${selector} encontrou ${elements.length} elementos`);
+    allDivs = [...allDivs, ...elements];
+  });
+  
+  // Remove duplicatas
+  allDivs = [...new Set(allDivs)];
+  console.log(`[CopyThief] Total de elementos únicos encontrados: ${allDivs.length}`);
+  
   allDivs.forEach((div, index) => {
     const detalhesBtn = Array.from(
       div.querySelectorAll('div[role="button"], button, a, span')
@@ -14,11 +35,14 @@ function detectAds() {
         el.textContent &&
         (el.textContent.trim().includes("See ad details") ||
           el.textContent.trim().includes("See summary") ||
-          el.textContent.trim().includes("See ad details") ||
-          el.textContent.trim().includes("See summary details"))
+          el.textContent.trim().includes("Ver detalhes do anúncio") ||
+          el.textContent.trim().includes("Ver resumo") ||
+          el.textContent.trim().includes("View ad details") ||
+          el.textContent.trim().includes("View summary"))
     );
 
     if (detalhesBtn && !div.querySelector(".copythief-btn")) {
+      console.log(`[CopyThief] Botão de detalhes encontrado: ${detalhesBtn.textContent.trim()}`);
       addSwipeButton(div, detalhesBtn, index);
     }
   });
@@ -43,46 +67,278 @@ function addSwipeButton(adElement, detalhesBtn, index) {
     parent = wrapper;
   }
 
+  // Cria container principal
+  const buttonContainer = document.createElement("div");
+  buttonContainer.className = "copythief-button-container";
+  buttonContainer.style.cssText = `
+    position: relative !important;
+    width: 100% !important;
+  `;
+
+  // Adiciona o link do Google Fonts para Material Symbols
+  const existingLink = document.querySelector('link[href*="Material+Symbols+Outlined"]');
+  if (!existingLink) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=move_to_inbox';
+    document.head.appendChild(link);
+  }
+
+  // Cria botão único com ícone integrado
   const button = document.createElement("button");
   button.className = "copythief-btn";
-  button.textContent = "💾 Save to CopyThief";
+  button.innerHTML = '<span class="btn-text">Save to CopyThief</span><span class="btn-dropdown-icon material-symbols-outlined">move_to_inbox</span>';
   button.style.cssText = `
-    margin-top: 0 !important;
     width: 100% !important;
-    max-width: 100% !important;
-    background: #a78bfa !important;
-    color: #fff !important;
+    height: 40px !important;
+    background: #ffdd57 !important;
+    color: #000000 !important;
     border: none !important;
-    border-radius: 8px !important;
-    padding: 10px 0 !important;
+    border-radius: 6px !important;
+    padding: 2px !important;
     font-weight: 600 !important;
     cursor: pointer !important;
-    font-size: 1rem !important;
-    box-shadow: 0 2px 8px #0002 !important;
-    display: block !important;
+    font-size: 10px !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     opacity: 1 !important;
     position: relative !important;
     z-index: 10 !important;
-    animation: none !important;
-    transition: none !important;
+    transition: background-color 0.2s ease !important;
     pointer-events: auto !important;
     visibility: visible !important;
     box-sizing: border-box !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    letter-spacing: -0.2px !important;
   `;
 
+  // Adiciona CSS específico para o ícone Material Symbols
+  const iconStyle = document.createElement('style');
+  iconStyle.textContent = `
+    .btn-dropdown-icon.material-symbols-outlined {
+      font-family: 'Material Symbols Outlined' !important;
+      font-weight: normal !important;
+      font-style: normal !important;
+      font-size: 20px !important;
+      line-height: 1 !important;
+      letter-spacing: normal !important;
+      text-transform: none !important;
+      display: inline-block !important;
+      white-space: nowrap !important;
+      word-wrap: normal !important;
+      direction: ltr !important;
+      -webkit-font-feature-settings: 'liga' !important;
+      -webkit-font-smoothing: antialiased !important;
+      font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20 !important;
+      height: 36px !important;
+      width: 36px !important;
+      border-radius: 4px !important;
+      background: transparent !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      transition: background-color 0.2s ease !important;
+    }
+    
+    .copythief-btn:hover .btn-dropdown-icon.material-symbols-outlined {
+      background: rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    .copythief-btn .btn-text {
+      position: absolute !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+    }
+    
+    .copythief-btn .btn-dropdown-icon {
+      position: absolute !important;
+      right: 2px !important;
+      top: 2px !important;
+    }
+  `;
+  document.head.appendChild(iconStyle);
+
+  // Cria dropdown
+  const dropdown = document.createElement("div");
+  dropdown.className = "copythief-dropdown";
+  dropdown.style.cssText = `
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 8px !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+    width: 100% !important;
+    max-height: 200px !important;
+    overflow-y: auto !important;
+    z-index: 1000 !important;
+    display: none !important;
+    margin-top: 4px !important;
+  `;
+
+  // Adiciona elementos ao container
+  buttonContainer.appendChild(button);
+  buttonContainer.appendChild(dropdown);
+
+  // Adiciona efeito hover
+  button.addEventListener("mouseenter", () => {
+    button.style.background = "#ffed8a";
+  });
+  
+  button.addEventListener("mouseleave", () => {
+    button.style.background = "#ffdd57";
+  });
+
+  // Event listener para o botão
   button.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    handleSwipe(adElement, index);
+    
+    // Verifica se o clique foi no ícone do dropdown
+    const dropdownIcon = button.querySelector('.btn-dropdown-icon');
+    const rect = button.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const iconX = dropdownIcon.getBoundingClientRect().left - rect.left;
+    
+    // Se clicou na área do ícone (últimos 40px do botão), abre dropdown
+    if (clickX > rect.width - 40) {
+      toggleDropdown(dropdown, adElement, index);
+    } else {
+      // Se clicou no texto, salva na pasta padrão
+      handleSwipe(adElement, index, null);
+    }
   });
 
-  if (!parent.querySelector(".copythief-btn")) {
-    parent.appendChild(button);
-    console.log("[CopyThief] Swipe button inserted.");
+  // Fecha dropdown quando clica fora
+  document.addEventListener("click", (e) => {
+    if (!buttonContainer.contains(e.target)) {
+      dropdown.style.display = "none";
+    }
+  });
+
+  if (!parent.querySelector(".copythief-button-container")) {
+    parent.appendChild(buttonContainer);
+    console.log("[CopyThief] Swipe button with dropdown inserted.");
   }
 }
 
-function handleSwipe(adElement, index) {
+// Função para alternar o dropdown
+function toggleDropdown(dropdown, adElement, index) {
+  if (dropdown.style.display === "none" || dropdown.style.display === "") {
+    loadFolders(dropdown, adElement, index);
+    dropdown.style.display = "block";
+  } else {
+    dropdown.style.display = "none";
+  }
+}
+
+// Função para carregar as pastas do usuário
+function loadFolders(dropdown, adElement, index) {
+  // Limpa o dropdown
+  dropdown.innerHTML = "";
+  
+  // Adiciona loading
+  const loadingItem = document.createElement("div");
+  loadingItem.style.cssText = `
+    padding: 12px 16px !important;
+    color: #6b7280 !important;
+    font-size: 14px !important;
+    text-align: center !important;
+  `;
+  loadingItem.textContent = "Loading folders...";
+  dropdown.appendChild(loadingItem);
+
+  // Busca as pastas do usuário
+  chrome.runtime.sendMessage(
+    { action: "getFolders" },
+    (response) => {
+      dropdown.innerHTML = ""; // Remove loading
+      
+      if (chrome.runtime.lastError) {
+        console.error("[CopyThief] Erro ao buscar pastas:", chrome.runtime.lastError);
+        const errorItem = document.createElement("div");
+        errorItem.style.cssText = `
+          padding: 12px 16px !important;
+          color: #ef4444 !important;
+          font-size: 14px !important;
+          text-align: center !important;
+        `;
+        errorItem.textContent = "Error loading folders";
+        dropdown.appendChild(errorItem);
+        return;
+      }
+
+      if (response && response.folders && response.folders.length > 0) {
+        // Adiciona opção "Default Folder"
+        const defaultItem = document.createElement("div");
+        defaultItem.className = "copythief-folder-item";
+        defaultItem.style.cssText = `
+          padding: 12px 16px !important;
+          cursor: pointer !important;
+          border-bottom: 1px solid #f3f4f6 !important;
+          font-size: 14px !important;
+          color: #374151 !important;
+          transition: background-color 0.2s ease !important;
+        `;
+        defaultItem.textContent = "📁 Default Folder";
+        defaultItem.addEventListener("click", () => {
+          dropdown.style.display = "none";
+          handleSwipe(adElement, index, null);
+        });
+        defaultItem.addEventListener("mouseenter", () => {
+          defaultItem.style.backgroundColor = "#f9fafb";
+        });
+        defaultItem.addEventListener("mouseleave", () => {
+          defaultItem.style.backgroundColor = "transparent";
+        });
+        dropdown.appendChild(defaultItem);
+
+        // Adiciona as pastas do usuário
+        response.folders.forEach(folder => {
+          const folderItem = document.createElement("div");
+          folderItem.className = "copythief-folder-item";
+          folderItem.style.cssText = `
+            padding: 12px 16px !important;
+            cursor: pointer !important;
+            border-bottom: 1px solid #f3f4f6 !important;
+            font-size: 14px !important;
+            color: #374151 !important;
+            transition: background-color 0.2s ease !important;
+          `;
+          folderItem.textContent = `📁 ${folder.name}`;
+          folderItem.addEventListener("click", () => {
+            dropdown.style.display = "none";
+            handleSwipe(adElement, index, folder.id);
+          });
+          folderItem.addEventListener("mouseenter", () => {
+            folderItem.style.backgroundColor = "#f9fafb";
+          });
+          folderItem.addEventListener("mouseleave", () => {
+            folderItem.style.backgroundColor = "transparent";
+          });
+          dropdown.appendChild(folderItem);
+        });
+      } else {
+        // Nenhuma pasta encontrada
+        const noFoldersItem = document.createElement("div");
+        noFoldersItem.style.cssText = `
+          padding: 12px 16px !important;
+          color: #6b7280 !important;
+          font-size: 14px !important;
+          text-align: center !important;
+        `;
+        noFoldersItem.textContent = "No folders found";
+        dropdown.appendChild(noFoldersItem);
+      }
+    }
+  );
+}
+
+function handleSwipe(adElement, index, folderId = null) {
   // Coleta dados do anúncio
   const adData = {
     platform: "META_FACEBOOK",
@@ -103,6 +359,7 @@ function handleSwipe(adElement, index) {
     iconUrl: null,
     metadata: {},
     tags: [],
+    folderId: folderId, // Adiciona o ID da pasta selecionada
   };
 
   // Título do anúncio
@@ -335,7 +592,8 @@ function handleSwipe(adElement, index) {
         }
         console.log("[CopyThief] Resposta do background:", response);
         if (response && response.success) {
-          showNotification("Swipe salvo com sucesso!", "success");
+          const folderName = folderId ? ` na pasta selecionada` : " na pasta padrão";
+          showNotification(`Swipe salvo com sucesso${folderName}!`, "success");
         } else {
           const errorMsg =
             response && response.error

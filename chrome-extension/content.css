@@ -3,7 +3,7 @@
 
 :root {
   --bg-primary: #010101;
-  --bg-secondary: #101117;
+  --bg-secondary: #0a0a0a;
   --accent-primary: #ffdd57;
   --accent-secondary: #ffed4e;
   --text-primary: #ffffff;
@@ -29,14 +29,14 @@
   margin-top: 0 !important;
   width: 100% !important;
   max-width: 100% !important;
-  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)) !important;
-  color: var(--bg-primary) !important;
+  background: #ffdd57 !important;
+  color: #000000 !important;
   border: none !important;
-  border-radius: var(--radius-lg) !important;
-  padding: 12px 16px !important;
-  font-weight: 700 !important;
+  border-radius: 16px !important;
+  padding: 16px 0 !important;
+  font-weight: 600 !important;
   cursor: pointer !important;
-  font-size: 14px !important;
+  font-size: 16px !important;
   box-shadow: var(--shadow-md) !important;
   display: flex !important;
   align-items: center !important;
@@ -50,7 +50,7 @@
   pointer-events: auto !important;
   visibility: visible !important;
   box-sizing: border-box !important;
-  font-family: 'Inter', sans-serif !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
   letter-spacing: -0.2px !important;
   text-decoration: none !important;
   outline: none !important;
@@ -69,10 +69,7 @@
 }
 
 .copythief-btn:hover {
-  background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary)) !important;
-  transform: translateY(-2px) !important;
-  box-shadow: var(--shadow-lg) !important;
-  filter: brightness(1.05) !important;
+  background: #ffed8a !important;
 }
 
 .copythief-btn:hover::before {
@@ -80,8 +77,7 @@
 }
 
 .copythief-btn:active {
-  transform: translateY(0) !important;
-  box-shadow: var(--shadow-md) !important;
+  background: #ffed8a !important;
 }
 
 .copythief-btn:focus {
@@ -99,7 +95,7 @@
 /* Button Text */
 .copythief-btn .btn-text {
   font-size: 14px !important;
-  font-weight: 700 !important;
+  font-weight: 500 !important;
   letter-spacing: -0.2px !important;
 }
 
@@ -242,7 +238,7 @@
   }
   
   .copythief-btn .btn-text {
-    font-size: 13px !important;
+    font-size: 12px !important;
   }
 }
 

@@ -48,6 +48,10 @@ class CopyThiefBackground {
         this.syncAuthFromWebsite().then(sendResponse);
         return true;
       }
+      if (request.action === "getFolders") {
+        this.getFolders().then(sendResponse);
+        return true;
+      }
     });
   }
 
@@ -225,6 +229,7 @@ class CopyThiefBackground {
         platformUrl: swipeData.platformUrl || undefined,
         iconUrl: swipeData.iconUrl || undefined,
         metadata: swipeData.metadata || {},
+        folderId: swipeData.folderId || undefined,
       };
 
       // Log detalhado do que está sendo enviado
@@ -384,6 +389,44 @@ class CopyThiefBackground {
       return { success: false, error: "No active session found" };
     } catch (error) {
       console.error("[CopyThief] Erro ao sincronizar autenticação:", error);
+      return { success: false, error: "Connection error" };
+    }
+  }
+
+  async getFolders() {
+    try {
+      console.log("[CopyThief] Buscando pastas do usuário...");
+
+      // Verifica autenticação
+      const authResult = await this.checkAuth();
+      if (!authResult.authenticated) {
+        return { success: false, error: "User not authenticated" };
+      }
+
+      // Obtém token de acesso
+      const { accessToken } = await chrome.storage.local.get(["accessToken"]);
+
+      // Busca pastas diretamente do Supabase
+      const supabaseUrl = "https://hkjiafvofsckqqcmadtf.supabase.co";
+      const response = await fetch(`${supabaseUrl}/rest/v1/folders?select=id,name,account_id`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
+          "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhramlhZnZvZnNja3FxY21hdGRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAyNTcwMTEsImV4cCI6MjA2NTgzMzAxMX0.1FP59n2a3B4A2iKiKzPpbKqlXwCbyNimHujCRjzDZEI"
+        },
+      });
+
+      if (response.ok) {
+        const folders = await response.json();
+        console.log("[CopyThief] Pastas encontradas:", folders);
+        return { success: true, folders: folders || [] };
+      } else {
+        console.error("[CopyThief] Erro ao buscar pastas:", response.status, await response.text());
+        return { success: false, error: "Erro ao buscar pastas" };
+      }
+    } catch (error) {
+      console.error("[CopyThief] Erro ao buscar pastas:", error);
       return { success: false, error: "Connection error" };
     }
   }
