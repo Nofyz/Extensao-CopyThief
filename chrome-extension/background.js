@@ -7,6 +7,7 @@ class CopyThiefBackground {
   constructor() {
     // Configuração da extensão
     this.apiBaseUrl = "https://copythief.ai"; // URL da API
+    this.videoApiUrl = process.env.VIDEO_API_URL || "https://[YOUR-LAMBDA-API-GATEWAY-URL]"; // AWS Lambda API Gateway URL
     this.debug = true;
     this.requestTimeout = 10000;
 
@@ -210,36 +211,72 @@ class CopyThiefBackground {
       // Obtém token de acesso
       const { accessToken } = await chrome.storage.local.get(["accessToken"]);
       console.log(swipeData);
-      // Prepara dados para a API conforme documentação
-      const apiData = {
-        title: swipeData.title || "Untitled ad",
-        platform: swipeData.platform,
-        description: swipeData.description || "",
-        url: swipeData.url,
-        imageUrl: swipeData.imageUrl || undefined,
-        timestamp: swipeData.timestamp,
-        tags: swipeData.tags || [],
-        contentUrl: swipeData.contentUrl || undefined,
-        thumbnailUrl: swipeData.contentUrl || undefined,
-        copyText: swipeData.copyText || undefined,
-        callToAction: swipeData.callToAction || undefined,
-        landingPageUrl: swipeData.landingPageUrl || undefined,
-        adType: swipeData.adType || undefined,
-        platformAdId: swipeData.platformAdId || undefined,
-        platformUrl: swipeData.platformUrl || undefined,
-        iconUrl: swipeData.iconUrl || undefined,
-        metadata: swipeData.metadata || {},
-        folderId: swipeData.folderId || undefined,
-      };
+
+      // Determine if this is a video ad that should use the new video service
+      const isVideoAd = swipeData.adType === "VIDEO" && swipeData.videoUrl;
+
+      let apiData;
+      let apiUrl;
+
+      if (isVideoAd) {
+        // Use new video service endpoint
+        console.log("[CopyThief] Using video service for VIDEO ad type");
+        
+        apiUrl = `${this.videoApiUrl}/api/save-video`;
+        
+        apiData = {
+          video_src: swipeData.videoUrl,
+          poster: swipeData.thumbnailUrl || swipeData.imageUrl,
+          title: swipeData.title || "Untitled ad",
+          platform_url: swipeData.url,
+          metadata: swipeData.metadata || {},
+          platform: swipeData.platform || "META_FACEBOOK",
+          adType: swipeData.adType,
+          description: swipeData.description,
+          copyText: swipeData.copyText,
+          callToAction: swipeData.callToAction,
+          landingPageUrl: swipeData.landingPageUrl,
+          platformAdId: swipeData.platformAdId,
+          iconUrl: swipeData.iconUrl,
+          folderId: swipeData.folderId,
+          timestamp: swipeData.timestamp || new Date().toISOString(),
+        };
+      } else {
+        // Use existing API endpoint for images and other content
+        console.log("[CopyThief] Using standard API for IMAGE ad type");
+        
+        apiUrl = `${this.apiBaseUrl}/api/swipes`;
+        
+        apiData = {
+          title: swipeData.title || "Untitled ad",
+          platform: swipeData.platform,
+          description: swipeData.description || "",
+          url: swipeData.url,
+          imageUrl: swipeData.imageUrl || undefined,
+          timestamp: swipeData.timestamp,
+          tags: swipeData.tags || [],
+          contentUrl: swipeData.contentUrl || undefined,
+          thumbnailUrl: swipeData.contentUrl || undefined,
+          copyText: swipeData.copyText || undefined,
+          callToAction: swipeData.callToAction || undefined,
+          landingPageUrl: swipeData.landingPageUrl || undefined,
+          adType: swipeData.adType || undefined,
+          platformAdId: swipeData.platformAdId || undefined,
+          platformUrl: swipeData.platformUrl || undefined,
+          iconUrl: swipeData.iconUrl || undefined,
+          metadata: swipeData.metadata || {},
+          folderId: swipeData.folderId || undefined,
+        };
+      }
 
       // Log detalhado do que está sendo enviado
       console.log("=== DADOS ENVIADOS PARA API ===");
-      console.log("URL da API:", `${this.apiBaseUrl}/api/swipes`);
+      console.log("URL da API:", apiUrl);
       console.log("Dados enviados:", JSON.stringify(apiData, null, 2));
       console.log("================================");
 
       // Envia para a API
-      const response = await fetch(`${this.apiBaseUrl}/api/swipes`, {
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
