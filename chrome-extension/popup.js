@@ -125,22 +125,61 @@ class PopupManager {
     this.hideLoginError();
 
     try {
-      // Abre uma nova aba para a página de login
-      const authUrl = await chrome.runtime.sendMessage({
-        action: "getGoogleAuthUrl"
-      });
+      // 1) Obtenha a URL de início com redirect da extensão
+      const start = await chrome.runtime.sendMessage({ action: "getGoogleAuthStartUrl" });
+      if (!start?.success || !start?.url) {
+        throw new Error(start?.error || "Failed to get auth URL");
+      }
 
-      if (authUrl.success) {
-        // Abre a URL de autenticação do Google em uma nova aba
+      // 2) Abra o fluxo via identity mantendo o gesto do usuário
+      const redirectUrl = await chrome.identity.launchWebAuthFlow({ url: start.url, interactive: true });
+
+      // 3) Parse dos params de retorno
+      const params = this.parseParamsFromUrl(redirectUrl);
+
+      // 4) Solicita ao background para completar/armazenar sessão
+      const result = await chrome.runtime.sendMessage({ action: "completeGoogleLogin", data: { params, redirectUri: start.redirectUri } });
+      if (result?.success) {
+        this.showMainSection(result.user);
+        this.showSuccess("Logged in with Google");
+        return;
+      }
+
+      // 5) Tenta sincronizar via cookies (sem abrir nova aba) por ~10s
+      const pollTry = async () => {
+        const sync = await chrome.runtime.sendMessage({ action: "syncAuthFromWebsite" });
+        if (sync?.success) {
+          this.showMainSection(sync.user);
+          this.showSuccess("Logged in with Google");
+          return true;
+        }
+        const check = await chrome.runtime.sendMessage({ action: "checkAuth" });
+        if (check?.authenticated) {
+          this.showMainSection(check.user);
+          this.showSuccess("Logged in with Google");
+          return true;
+        }
+        return false;
+      };
+
+      let ok = false; let attempts = 0;
+      while (attempts < 5 && !ok) { // ~10s
+        // eslint-disable-next-line no-await-in-loop
+        ok = await pollTry();
+        // eslint-disable-next-line no-await-in-loop
+        if (!ok) await new Promise(r => setTimeout(r, 2000));
+        attempts++;
+      }
+      if (ok) return;
+
+      // 6) Último fallback: abre a URL de login do backend em uma aba e monitora
+      const authUrl = await chrome.runtime.sendMessage({ action: "getGoogleAuthUrl" });
+      if (authUrl?.success && authUrl?.url) {
         chrome.tabs.create({ url: authUrl.url });
-        
-        // Mostra mensagem informativa
-        this.showSuccess("Complete Google login in the new tab, then return to this extension");
-        
-        // Monitora o retorno da autenticação
         this.monitorGoogleAuth();
+        this.showSuccess("Complete Google login in the new tab...");
       } else {
-        this.showLoginError(authUrl.error || "Failed to initiate Google login");
+        this.showLoginError(result?.error || authUrl?.error || "Failed to login with Google");
       }
     } catch (error) {
       console.error("Google login error:", error);
@@ -148,6 +187,19 @@ class PopupManager {
     } finally {
       googleLoginBtn.querySelector('.btn-text').textContent = originalText;
       googleLoginBtn.disabled = false;
+    }
+  }
+
+  parseParamsFromUrl(url) {
+    try {
+      const hasHash = url.includes('#');
+      const queryString = hasHash ? url.split('#')[1] : (url.split('?')[1] || "");
+      const params = new URLSearchParams(queryString);
+      const obj = {};
+      params.forEach((v, k) => { obj[k] = v; });
+      return obj;
+    } catch (_e) {
+      return {};
     }
   }
 

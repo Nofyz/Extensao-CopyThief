@@ -6,7 +6,11 @@ console.log("[CopyThief] Background script carregado");
 class CopyThiefBackground {
   constructor() {
     // Configuração da extensão
-    this.apiBaseUrl = "https://copythief.ai"; // URL da API
+    this.apiBaseUrl = "https://copythief.ai"; // URL da API principal
+    // URL do serviço de vídeo (AWS Lambda) - pode ser sobrescrito via chrome.storage
+    // Para desenvolvimento local, use: "http://localhost:4000"
+    // Para produção, será: "https://copythief.ai" (mesma URL, roteado pelo backend)
+    this.videoApiUrl = "https://5ab40bnfwi.execute-api.us-east-1.amazonaws.com/dev"; 
     this.debug = true;
     this.requestTimeout = 10000;
 
@@ -210,7 +214,133 @@ class CopyThiefBackground {
       // Obtém token de acesso
       const { accessToken } = await chrome.storage.local.get(["accessToken"]);
       console.log(swipeData);
-      // Prepara dados para a API conforme documentação
+
+      // Verifica se é vídeo e tem videoUrl - usa o novo serviço de vídeo
+      if (swipeData.adType === "VIDEO" && swipeData.videoUrl) {
+        console.log("[CopyThief] Detectado vídeo, usando serviço de upload para S3");
+        
+        // Prepara dados para o serviço de vídeo
+        const videoApiData = {
+          video_src: swipeData.videoUrl,
+          poster: swipeData.thumbnailUrl || swipeData.imageUrl || undefined,
+          title: swipeData.title || "Untitled ad",
+          platform_url: swipeData.url || swipeData.platformUrl || "",
+          platform: swipeData.platform || "META_FACEBOOK",
+          adType: swipeData.adType,
+          description: swipeData.description || undefined,
+          copyText: swipeData.copyText || undefined,
+          callToAction: swipeData.callToAction || undefined,
+          landingPageUrl: swipeData.landingPageUrl || undefined,
+          platformAdId: swipeData.platformAdId || undefined,
+          iconUrl: swipeData.iconUrl || undefined,
+          folderId: swipeData.folderId || undefined,
+          timestamp: swipeData.timestamp || new Date().toISOString(),
+          metadata: swipeData.metadata || {},
+        };
+
+        // Log detalhado do que está sendo enviado
+        console.log("=== DADOS ENVIADOS PARA SERVIÇO DE VÍDEO ===");
+        console.log("URL da API:", `${this.videoApiUrl}/api/save-video`);
+        console.log("Dados enviados:", JSON.stringify(videoApiData, null, 2));
+        console.log("============================================");
+
+        try {
+          // Envia para o serviço de vídeo (AWS Lambda)
+          const response = await fetch(`${this.videoApiUrl}/api/save-video`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify(videoApiData),
+          });
+
+          const result = await response.json();
+
+          // Log da resposta da API
+          console.log("=== RESPOSTA DO SERVIÇO DE VÍDEO ===");
+          console.log("Status:", response.status);
+          console.log("Resposta:", JSON.stringify(result, null, 2));
+          console.log("====================================");
+
+          if (response.ok && result.success) {
+            console.log("[CopyThief] Vídeo salvo no S3 e metadados salvos no Supabase:", result);
+            // O serviço já salvou no Supabase, retorna sucesso com o swipe
+            return { 
+              success: true, 
+              swipe: result.swipe,
+              // Inclui a URL do S3 na resposta
+              s3VideoUrl: result.swipe.content_url,
+              s3ThumbnailUrl: result.swipe.thumbnail_url
+            };
+          } else {
+            console.error("[CopyThief] Erro ao salvar vídeo:", result);
+            return {
+              success: false,
+              error: result.error || "Erro ao salvar vídeo",
+            };
+          }
+        } catch (videoError) {
+          console.error("[CopyThief] Erro ao chamar serviço de vídeo:", videoError);
+          // Se o serviço de vídeo falhar, tenta salvar normalmente (fallback)
+          console.log("[CopyThief] Tentando salvar como swipe normal (fallback)");
+          // Continua para o código de fallback abaixo
+        }
+      }
+
+      // Fluxo para IMAGEM: envia para o mesmo serviço novo (S3 + Supabase)
+      if (swipeData.adType === "IMAGE" && (swipeData.imageUrl || swipeData.contentUrl)) {
+        console.log("[CopyThief] Detectada imagem, usando serviço de upload para S3");
+
+        const imgSrc = swipeData.imageUrl || swipeData.contentUrl;
+        const imageApiData = {
+          image_url: imgSrc,
+          title: swipeData.title || "Untitled",
+          platform_url: swipeData.url || swipeData.platformUrl || "",
+          platform: swipeData.platform || "META_FACEBOOK",
+          adType: "IMAGE",
+          description: swipeData.description || undefined,
+          copyText: swipeData.copyText || undefined,
+          callToAction: swipeData.callToAction || undefined,
+          landingPageUrl: swipeData.landingPageUrl || undefined,
+          platformAdId: swipeData.platformAdId || undefined,
+          iconUrl: swipeData.iconUrl || undefined,
+          folderId: swipeData.folderId || undefined,
+          timestamp: swipeData.timestamp || new Date().toISOString(),
+          metadata: swipeData.metadata || {},
+        };
+
+        console.log("=== DADOS ENVIADOS PARA SERVIÇO DE IMAGEM ===");
+        console.log("URL da API:", `${this.videoApiUrl}/api/save-video`);
+        console.log("Dados enviados:", JSON.stringify(imageApiData, null, 2));
+        console.log("=============================================");
+
+        const response = await fetch(`${this.videoApiUrl}/api/save-video`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(imageApiData),
+        });
+
+        const result = await response.json();
+
+        console.log("=== RESPOSTA DO SERVIÇO DE IMAGEM ===");
+        console.log("Status:", response.status);
+        console.log("Resposta:", JSON.stringify(result, null, 2));
+        console.log("=====================================");
+
+        if (response.ok && result.success) {
+          console.log("[CopyThief] Imagem salva no S3 e metadados salvos no Supabase:", result);
+          return { success: true, swipe: result.swipe };
+        }
+
+        console.error("[CopyThief] Erro ao salvar imagem:", result);
+        return { success: false, error: result.error || "Erro ao salvar imagem" };
+      }
+
+      // Fallback final: mantém compatibilidade se não for VIDEO nem IMAGE com fontes válidas
       const apiData = {
         title: swipeData.title || "Untitled ad",
         platform: swipeData.platform,
@@ -232,13 +362,11 @@ class CopyThiefBackground {
         folderId: swipeData.folderId || undefined,
       };
 
-      // Log detalhado do que está sendo enviado
-      console.log("=== DADOS ENVIADOS PARA API ===");
+      console.log("=== DADOS ENVIADOS PARA API (FALLBACK LEGADO) ===");
       console.log("URL da API:", `${this.apiBaseUrl}/api/swipes`);
       console.log("Dados enviados:", JSON.stringify(apiData, null, 2));
-      console.log("================================");
+      console.log("================================================");
 
-      // Envia para a API
       const response = await fetch(`${this.apiBaseUrl}/api/swipes`, {
         method: "POST",
         headers: {
@@ -250,22 +378,15 @@ class CopyThiefBackground {
 
       const result = await response.json();
 
-      // Log da resposta da API
-      console.log("=== RESPOSTA DA API ===");
+      console.log("=== RESPOSTA DA API (FALLBACK LEGADO) ===");
       console.log("Status:", response.status);
       console.log("Resposta:", JSON.stringify(result, null, 2));
-      console.log("========================");
+      console.log("=========================================");
 
       if (response.ok) {
-        console.log("[CopyThief] Swipe salvo com sucesso:", result);
         return { success: true, swipe: result.swipe };
-      } else {
-        console.error("[CopyThief] Erro ao salvar swipe:", result);
-        return {
-          success: false,
-          error: result.error || "Erro ao salvar swipe",
-        };
       }
+      return { success: false, error: result.error || "Erro ao salvar swipe" };
     } catch (error) {
       console.error("[CopyThief] Erro ao salvar swipe:", error);
       return { success: false, error: "Connection error" };

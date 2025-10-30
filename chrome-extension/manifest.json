@@ -5,13 +5,15 @@
   "description": "Save ads from Facebook, TikTok and Google",
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "identity"
   ],
   "host_permissions": [
     "https://www.facebook.com/*",
     "https://www.tiktok.com/*",
     "https://ads.google.com/*",
     "https://copythief.ai/*",
+    "http://localhost:4000/*",
     "https://*.supabase.co/*",
     "https://accounts.google.com/*"
   ],
