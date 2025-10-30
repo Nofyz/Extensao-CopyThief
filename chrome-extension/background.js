@@ -10,7 +10,7 @@ class CopyThiefBackground {
     // URL do serviço de vídeo (AWS Lambda) - pode ser sobrescrito via chrome.storage
     // Para desenvolvimento local, use: "http://localhost:4000"
     // Para produção, será: "https://copythief.ai" (mesma URL, roteado pelo backend)
-    this.videoApiUrl = "https://5ab40bnfwi.execute-api.us-east-1.amazonaws.com/dev"; 
+    this.videoApiUrl = "https://p625iryn4j.execute-api.us-east-1.amazonaws.com/prod"; 
     this.debug = true;
     this.requestTimeout = 10000;
 
