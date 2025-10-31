@@ -1,12 +1,8 @@
 // Content Script para CopyThief
 // Detecta anúncios e adiciona botões de swipe
 
-console.log("[CopyThief] Content script carregado");
-
 // Detecta anúncios do Facebook Ads Library
 function detectAds() {
-  console.log("[CopyThief] Detectando anúncios...");
-  
   // Procura por diferentes seletores possíveis para os cards de anúncios
   const possibleSelectors = [
     "div.xh8yej3",
@@ -19,13 +15,11 @@ function detectAds() {
   let allDivs = [];
   possibleSelectors.forEach(selector => {
     const elements = document.querySelectorAll(selector);
-    console.log(`[CopyThief] Seletor ${selector} encontrou ${elements.length} elementos`);
     allDivs = [...allDivs, ...elements];
   });
   
   // Remove duplicatas
   allDivs = [...new Set(allDivs)];
-  console.log(`[CopyThief] Total de elementos únicos encontrados: ${allDivs.length}`);
   
   allDivs.forEach((div, index) => {
     const detalhesBtn = Array.from(
@@ -42,7 +36,6 @@ function detectAds() {
     );
 
     if (detalhesBtn && !div.querySelector(".copythief-btn")) {
-      console.log(`[CopyThief] Botão de detalhes encontrado: ${detalhesBtn.textContent.trim()}`);
       addSwipeButton(div, detalhesBtn, index);
     }
   });
@@ -222,7 +215,6 @@ function addSwipeButton(adElement, detalhesBtn, index) {
 
   if (!parent.querySelector(".copythief-button-container")) {
     parent.appendChild(buttonContainer);
-    console.log("[CopyThief] Swipe button with dropdown inserted.");
   }
 }
 
@@ -573,7 +565,6 @@ function handleSwipe(adElement, index, folderId = null) {
     );
   }
 
-  console.log(adData);
   // Envia para o background script
   try {
     chrome.runtime.sendMessage(
@@ -590,7 +581,6 @@ function handleSwipe(adElement, index, folderId = null) {
           showNotification("Extension connection error", "error");
           return;
         }
-        console.log("[CopyThief] Resposta do background:", response);
         if (response && response.success) {
           const folderName = folderId ? ` na pasta selecionada` : " na pasta padrão";
           showNotification(`Swipe salvo com sucesso${folderName}!`, "success");
@@ -608,7 +598,6 @@ function handleSwipe(adElement, index, folderId = null) {
     showNotification("Extension connection error", "error");
     // Se a extensão foi invalidada, recarrega a página para reinicializar
     if (error.message.includes("Extension context invalidated")) {
-      console.log("[CopyThief] Extension invalidated, reloading page...");
       setTimeout(() => {
         window.location.reload();
       }, 2000);
@@ -688,5 +677,3 @@ observer.observe(document.body, {
   childList: true,
   subtree: true,
 });
-
-console.log("[CopyThief] Content script inicializado");
