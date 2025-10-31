@@ -11,6 +11,17 @@ class PopupManager {
       this.bindEvents();
       await this.checkAuthStatus();
       this.hideLoading();
+      
+      // Listener para mudanças de auth vindas do background
+      chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.action === "authStateChanged") {
+          if (message.authenticated) {
+            this.showMainSection(message.user);
+          } else {
+            this.showLoginSection();
+          }
+        }
+      });
     } catch (error) {
       console.error("Popup initialization failed:", error);
       this.showError("Failed to initialize extension");
@@ -125,89 +136,176 @@ class PopupManager {
     this.hideLoginError();
 
     try {
-      // 1) Obtenha a URL de início com redirect da extensão
-      const start = await chrome.runtime.sendMessage({ action: "getGoogleAuthStartUrl" });
-      if (!start?.success || !start?.url) {
-        throw new Error(start?.error || "Failed to get auth URL");
+      // Obtém a URL de autenticação Google
+      const authUrlResponse = await chrome.runtime.sendMessage({ action: "getGoogleAuthUrl" });
+      
+      if (!authUrlResponse?.success || !authUrlResponse?.url) {
+        throw new Error(authUrlResponse?.error || "Failed to get auth URL");
       }
 
-      // 2) Abra o fluxo via identity mantendo o gesto do usuário
-      const redirectUrl = await chrome.identity.launchWebAuthFlow({ url: start.url, interactive: true });
-
-      // 3) Parse dos params de retorno
-      const params = this.parseParamsFromUrl(redirectUrl);
-
-      // 4) Solicita ao background para completar/armazenar sessão
-      const result = await chrome.runtime.sendMessage({ action: "completeGoogleLogin", data: { params, redirectUri: start.redirectUri } });
-      if (result?.success) {
-        this.showMainSection(result.user);
-        this.showSuccess("Logged in with Google");
-        return;
-      }
-
-      // 5) Tenta sincronizar via cookies (sem abrir nova aba) por ~10s
-      const pollTry = async () => {
-        const sync = await chrome.runtime.sendMessage({ action: "syncAuthFromWebsite" });
-        if (sync?.success) {
-          this.showMainSection(sync.user);
-          this.showSuccess("Logged in with Google");
-          return true;
-        }
-        const check = await chrome.runtime.sendMessage({ action: "checkAuth" });
-        if (check?.authenticated) {
-          this.showMainSection(check.user);
-          this.showSuccess("Logged in with Google");
-          return true;
-        }
-        return false;
-      };
-
-      let ok = false; let attempts = 0;
-      while (attempts < 5 && !ok) { // ~10s
-        // eslint-disable-next-line no-await-in-loop
-        ok = await pollTry();
-        // eslint-disable-next-line no-await-in-loop
-        if (!ok) await new Promise(r => setTimeout(r, 2000));
-        attempts++;
-      }
-      if (ok) return;
-
-      // 6) Último fallback: abre a URL de login do backend em uma aba e monitora
-      const authUrl = await chrome.runtime.sendMessage({ action: "getGoogleAuthUrl" });
-      if (authUrl?.success && authUrl?.url) {
-        chrome.tabs.create({ url: authUrl.url });
-        this.monitorGoogleAuth();
-        this.showSuccess("Complete Google login in the new tab...");
-      } else {
-        this.showLoginError(result?.error || authUrl?.error || "Failed to login with Google");
-      }
+      // Abre a URL em uma nova aba e armazena o ID da aba
+      const tab = await chrome.tabs.create({ url: authUrlResponse.url });
+      
+      // Mostra mensagem para o usuário
+      this.showSuccess("Complete Google login in the new tab...");
+      
+      // Monitora a aba de callback e a autenticação
+      this.monitorGoogleAuthTab(tab.id);
     } catch (error) {
       console.error("Google login error:", error);
-      this.showLoginError("Connection error");
+      this.showLoginError(error.message || "Connection error");
     } finally {
       googleLoginBtn.querySelector('.btn-text').textContent = originalText;
       googleLoginBtn.disabled = false;
     }
   }
 
-  parseParamsFromUrl(url) {
-    try {
-      const hasHash = url.includes('#');
-      const queryString = hasHash ? url.split('#')[1] : (url.split('?')[1] || "");
-      const params = new URLSearchParams(queryString);
-      const obj = {};
-      params.forEach((v, k) => { obj[k] = v; });
-      return obj;
-    } catch (_e) {
-      return {};
+  async monitorGoogleAuthTab(tabId) {
+    // Monitora quando a aba de callback completa o login
+    const checkTabAndAuth = async () => {
+      try {
+        // Verifica se a aba ainda está aberta
+        try {
+          const tab = await chrome.tabs.get(tabId);
+          const url = tab.url || '';
+          
+          // Se a URL contém o callback, tenta sincronizar imediatamente
+          if (url.includes('/auth/callback') || (url.includes('copythief.ai') && !url.includes('/auth/google'))) {
+            // Aguarda um pouco para garantir que o site processou o callback
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Tenta obter auth da página primeiro (método mais confiável)
+            const pageAuthResponse = await chrome.runtime.sendMessage({
+              action: "getAuthFromPage",
+            });
+
+            if (pageAuthResponse.success) {
+              // Fecha a aba de callback após login bem-sucedido
+              try {
+                await chrome.tabs.remove(tabId);
+              } catch (e) {
+                // Ignora erro se a aba já foi fechada
+              }
+              this.showMainSection(pageAuthResponse.user);
+              this.showSuccess("Logged in with Google successfully!");
+              return true;
+            }
+            
+            // Fallback: tenta sincronizar via API
+            const syncResponse = await chrome.runtime.sendMessage({
+              action: "syncAuthFromWebsite",
+            });
+
+            if (syncResponse.success) {
+              // Fecha a aba de callback após login bem-sucedido
+              try {
+                await chrome.tabs.remove(tabId);
+              } catch (e) {
+                // Ignora erro se a aba já foi fechada
+              }
+              this.showMainSection(syncResponse.user);
+              this.showSuccess("Logged in with Google successfully!");
+              return true;
+            }
+          }
+        } catch (e) {
+          // Tab pode ter sido fechada, continua verificando auth
+        }
+
+        // Tenta obter auth da página primeiro (método mais confiável)
+        const pageAuthResponse = await chrome.runtime.sendMessage({
+          action: "getAuthFromPage",
+        });
+
+        if (pageAuthResponse.success) {
+          try {
+            await chrome.tabs.remove(tabId);
+          } catch (e) {
+            // Ignora erro se a aba já foi fechada
+          }
+          this.showMainSection(pageAuthResponse.user);
+          this.showSuccess("Logged in with Google successfully!");
+          return true;
+        }
+
+        // Tenta sincronizar mesmo se a aba ainda estiver aberta
+        const syncResponse = await chrome.runtime.sendMessage({
+          action: "syncAuthFromWebsite",
+        });
+
+        if (syncResponse.success) {
+          try {
+            await chrome.tabs.remove(tabId);
+          } catch (e) {
+            // Ignora erro se a aba já foi fechada
+          }
+          this.showMainSection(syncResponse.user);
+          this.showSuccess("Logged in with Google successfully!");
+          return true;
+        }
+
+        // Verifica auth local
+        const response = await chrome.runtime.sendMessage({
+          action: "checkAuth",
+        });
+
+        if (response.authenticated) {
+          try {
+            await chrome.tabs.remove(tabId);
+          } catch (e) {
+            // Ignora erro se a aba já foi fechada
+          }
+          this.showMainSection(response.user);
+          this.showSuccess("Logged in with Google successfully!");
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error("Error checking auth status:", error);
+        return false;
+      }
+    };
+
+    // Adiciona listener para mudanças na aba
+    const tabUpdateListener = async (changedTabId, changeInfo, updatedTab) => {
+      if (changedTabId === tabId && changeInfo.status === 'complete') {
+        // Quando a aba termina de carregar, verifica imediatamente
+        if (await checkTabAndAuth()) {
+          chrome.tabs.onUpdated.removeListener(tabUpdateListener);
+          clearInterval(pollInterval);
+        }
+      }
+    };
+
+    chrome.tabs.onUpdated.addListener(tabUpdateListener);
+
+    // Verifica imediatamente
+    if (await checkTabAndAuth()) {
+      chrome.tabs.onUpdated.removeListener(tabUpdateListener);
+      return;
     }
+
+    // Polling de backup a cada 2 segundos por até 60 segundos
+    let attempts = 0;
+    const maxAttempts = 30;
+    
+    const pollInterval = setInterval(async () => {
+      attempts++;
+      
+      if (await checkTabAndAuth() || attempts >= maxAttempts) {
+        chrome.tabs.onUpdated.removeListener(tabUpdateListener);
+        clearInterval(pollInterval);
+        if (attempts >= maxAttempts) {
+          this.showLoginError("Login timeout. Please try again.");
+        }
+      }
+    }, 2000);
   }
 
   async monitorGoogleAuth() {
-    // Verifica periodicamente se o usuário foi autenticado
+    // Método de fallback sem monitoramento de aba
     const checkAuth = async () => {
       try {
-        // Primeiro tenta sincronizar com o website
         const syncResponse = await chrome.runtime.sendMessage({
           action: "syncAuthFromWebsite",
         });
@@ -217,7 +315,6 @@ class PopupManager {
           return true;
         }
 
-        // Se não conseguiu sincronizar, verifica o auth local
         const response = await chrome.runtime.sendMessage({
           action: "checkAuth",
         });
@@ -233,7 +330,6 @@ class PopupManager {
       }
     };
 
-    // Verifica a cada 2 segundos por até 30 segundos
     let attempts = 0;
     const maxAttempts = 15;
     

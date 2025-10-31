@@ -6,13 +6,17 @@
   "permissions": [
     "activeTab",
     "storage",
-    "identity"
+    "identity",
+    "tabs",
+    "cookies",
+    "scripting"
   ],
   "host_permissions": [
     "https://www.facebook.com/*",
     "https://www.tiktok.com/*",
     "https://ads.google.com/*",
     "https://copythief.ai/*",
+    "https://*.copythief.ai/*",
     "http://localhost:4000/*",
     "https://*.supabase.co/*",
     "https://accounts.google.com/*"
@@ -36,6 +40,23 @@
       ],
       "js": ["content.js"],
       "css": ["content.css"]
+    },
+    {
+      "matches": [
+        "https://copythief.ai/*",
+        "https://*.copythief.ai/*"
+      ],
+      "js": ["copythief-site-content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["copythief-site-injected.js"],
+      "matches": [
+        "https://copythief.ai/*",
+        "https://*.copythief.ai/*"
+      ]
     }
   ],
   "background": {

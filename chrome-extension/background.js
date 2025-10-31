@@ -54,6 +54,14 @@ class CopyThiefBackground {
         this.getFolders().then(sendResponse);
         return true;
       }
+      if (request.action === "getAuthFromPage") {
+        this.getAuthFromPage().then(sendResponse);
+        return true;
+      }
+      if (request.action === "authDetectedOnPage") {
+        this.handleAuthDetected(request.session, request.user).then(sendResponse);
+        return true;
+      }
     });
   }
 
@@ -192,6 +200,257 @@ class CopyThiefBackground {
     } catch (error) {
       console.error("[CopyThief] Erro ao renovar token:", error);
       return { success: false };
+    }
+  }
+
+  async persistSession(session, user) {
+    if (!session || !session.access_token) {
+      return null;
+    }
+
+    const normalizedUser = user || { email: "user@example.com" };
+
+    await chrome.storage.local.set({
+      accessToken: session.access_token,
+      refreshToken: session.refresh_token,
+      expiresAt: session.expires_at,
+      user: normalizedUser,
+    });
+
+    chrome.runtime
+      .sendMessage({
+        action: "authStateChanged",
+        authenticated: true,
+        user: normalizedUser,
+      })
+      .catch(() => {
+        // Nenhum listener aberto - ignorar
+      });
+
+    return normalizedUser;
+  }
+
+  parseSessionPayload(rawValue) {
+    if (!rawValue || typeof rawValue !== "string") {
+      return null;
+    }
+
+    const attempts = [rawValue];
+    if (rawValue.startsWith("base64-")) {
+      try {
+        const decoded = atob(rawValue.slice("base64-".length));
+        attempts.push(decoded);
+      } catch (error) {
+        console.debug("[CopyThief] parseSessionPayload: failed to decode base64 payload", error?.message);
+      }
+    }
+
+    for (const attempt of attempts) {
+      try {
+        return JSON.parse(attempt);
+      } catch (error) {
+        // Continue trying other formats
+      }
+    }
+
+    return null;
+  }
+
+  normalizeSessionPayload(payload) {
+    if (!payload || typeof payload !== "object") {
+      return null;
+    }
+
+    const nestedKeys = ["data", "session", "currentSession", "current", "value"];
+    for (const key of nestedKeys) {
+      if (payload[key]) {
+        const nested = this.normalizeSessionPayload(payload[key]);
+        if (nested) {
+          if (!nested.user) {
+            nested.user =
+              payload.user ||
+              payload.user_metadata ||
+              payload.currentUser ||
+              payload?.data?.user ||
+              nested.user ||
+              null;
+          }
+          return nested;
+        }
+      }
+    }
+
+    const accessToken =
+      payload.access_token ||
+      payload.accessToken ||
+      null;
+
+    if (!accessToken) {
+      return null;
+    }
+
+    const refreshToken =
+      payload.refresh_token ||
+      payload.refreshToken ||
+      null;
+
+    const expiresCandidates = [
+      payload.expires_at,
+      payload.expiresAt,
+      payload?.session?.expires_at,
+      payload?.session?.expiresAt,
+      payload?.currentSession?.expires_at,
+      payload?.currentSession?.expiresAt,
+      payload?.current?.expires_at,
+      payload?.current?.expiresAt,
+      payload?.data?.session?.expires_at,
+      payload?.data?.session?.expiresAt,
+    ];
+
+    let expiresAt = null;
+    for (const candidate of expiresCandidates) {
+      const numericCandidate = Number(candidate);
+      if (!Number.isNaN(numericCandidate) && Number.isFinite(numericCandidate)) {
+        expiresAt = numericCandidate;
+        break;
+      }
+    }
+
+    const expiresIn =
+      payload.expires_in ||
+      payload.expiresIn ||
+      payload?.session?.expires_in ||
+      payload?.currentSession?.expires_in ||
+      payload?.current?.expires_in ||
+      payload?.data?.session?.expires_in ||
+      null;
+
+    if (!expiresAt && expiresIn) {
+      const numericExpiresIn = Number(expiresIn);
+      if (!Number.isNaN(numericExpiresIn) && Number.isFinite(numericExpiresIn)) {
+        expiresAt = Math.floor(Date.now() / 1000) + numericExpiresIn;
+      }
+    }
+
+    if (!expiresAt) {
+      expiresAt = Math.floor(Date.now() / 1000) + 3600;
+    }
+
+    const user =
+      payload.user ||
+      payload.user_metadata ||
+      payload.currentUser ||
+      payload?.session?.user ||
+      payload?.currentSession?.user ||
+      payload?.current?.user ||
+      payload?.data?.user ||
+      null;
+
+    return {
+      session: {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_at: expiresAt,
+      },
+      user,
+    };
+  }
+
+  async captureSessionFromCookies() {
+    try {
+      if (!chrome.cookies?.getAll) {
+        console.debug("[CopyThief] captureSessionFromCookies: cookies API not available");
+        return null;
+      }
+
+      const cookies = await chrome.cookies.getAll({});
+      const relevant = cookies.filter((cookie) => {
+        if (!cookie?.name) {
+          return false;
+        }
+        return cookie.name.includes("sb-") && cookie.name.includes("auth-token");
+      });
+
+      if (!relevant.length) {
+        console.debug("[CopyThief] captureSessionFromCookies: no auth cookies found");
+        return null;
+      }
+
+      const grouped = new Map();
+
+      for (const cookie of relevant) {
+        const [baseName, suffix] = cookie.name.split(".");
+        const order = suffix ? Number(suffix) : 0;
+
+        if (!grouped.has(baseName)) {
+          grouped.set(baseName, []);
+        }
+
+        const bucket = grouped.get(baseName);
+        let value = cookie.value || "";
+
+        try {
+          value = decodeURIComponent(value);
+        } catch (error) {
+          // keep original value
+        }
+
+        console.debug("[CopyThief] captureSessionFromCookies: found cookie segment", {
+          name: cookie.name,
+          domain: cookie.domain,
+          path: cookie.path,
+          secure: cookie.secure,
+          httpOnly: cookie.httpOnly,
+          order,
+        });
+
+        bucket[Number.isFinite(order) ? order : bucket.length] = value;
+      }
+
+      for (const [name, segments] of grouped.entries()) {
+        if (!segments || !segments.length) {
+          continue;
+        }
+
+        const combined = segments.filter(Boolean).join("");
+        const attempts = [combined, ...segments.filter(Boolean)];
+
+        for (const candidate of attempts) {
+          if (!candidate) {
+            continue;
+          }
+          const parsed = this.parseSessionPayload(candidate);
+          if (!parsed) {
+            continue;
+          }
+
+          const normalized = this.normalizeSessionPayload(parsed);
+          if (normalized && normalized.session && normalized.session.access_token) {
+            console.debug("[CopyThief] captureSessionFromCookies: session reconstructed from cookie", name);
+            return normalized;
+          }
+        }
+      }
+
+      console.debug("[CopyThief] captureSessionFromCookies: no valid session found in cookies");
+      return null;
+    } catch (error) {
+      console.error("[CopyThief] captureSessionFromCookies: failed to read cookies", error);
+      return null;
+    }
+  }
+
+  async ensureContentBridge(tabId) {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ["copythief-site-content.js"],
+      });
+      console.debug("[CopyThief] ensureContentBridge: injected content bridge into tab", tabId);
+      return true;
+    } catch (error) {
+      console.debug("[CopyThief] ensureContentBridge: failed to inject content bridge", tabId, error?.message);
+      return false;
     }
   }
 
@@ -382,78 +641,213 @@ class CopyThiefBackground {
 
   async getGoogleAuthUrl() {
     try {
-      // Usa a API do Supabase para gerar a URL de autenticação Google
-      const response = await fetch(`${this.apiBaseUrl}/api/auth/google`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          redirectTo: `${this.apiBaseUrl}/auth/callback`
-        })
-      });
+      // Cria um AbortController para timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.requestTimeout);
 
-      if (response.ok) {
-        const data = await response.json();
-        return { success: true, url: data.url };
-      } else {
-        const errorData = await response.json();
-        console.error("[CopyThief] Erro ao gerar URL de autenticação:", response.status, errorData);
-        return { success: false, error: errorData.error || "Failed to generate auth URL" };
+      try {
+        // Usa a API do Supabase para gerar a URL de autenticação Google
+        const response = await fetch(`${this.apiBaseUrl}/api/auth/google`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            redirectTo: `${this.apiBaseUrl}/auth/callback`
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.url) {
+            return { success: true, url: data.url };
+          } else {
+            return { success: false, error: "Invalid response from server" };
+          }
+        } else {
+          let errorMessage = "Failed to generate auth URL";
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorData.message || errorMessage;
+          } catch (e) {
+            // Se não conseguir fazer parse do JSON, usa a mensagem padrão
+            errorMessage = `Server error: ${response.status} ${response.statusText}`;
+          }
+          console.error("[CopyThief] Erro ao gerar URL de autenticação:", response.status, errorMessage);
+          return { success: false, error: errorMessage };
+        }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        throw fetchError;
       }
     } catch (error) {
       console.error("[CopyThief] Erro ao gerar URL de autenticação:", error);
-      return { success: false, error: "Connection error" };
+      if (error.name === 'AbortError') {
+        return { success: false, error: "Request timeout. Please check your connection." };
+      }
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        return { success: false, error: "Network error. Please check your internet connection." };
+      }
+      return { success: false, error: error.message || "Connection error" };
     }
+  }
+
+  async captureSessionFromTabs() {
+    let tabs = await chrome.tabs.query({
+      url: ["https://copythief.ai/*", "https://*.copythief.ai/*"],
+    });
+
+    if (!tabs || tabs.length === 0) {
+      console.debug("[CopyThief] captureSessionFromTabs: no copythief.ai tabs found via url filter, scanning all tabs");
+      const allTabs = await chrome.tabs.query({});
+      tabs = allTabs.filter((tab) => {
+        if (!tab.url) {
+          return false;
+        }
+        return tab.url.includes("copythief.ai");
+      });
+
+      if (!tabs.length) {
+        console.debug("[CopyThief] captureSessionFromTabs: still no copythief.ai tabs after full scan", {
+          totalTabs: allTabs.length,
+        });
+        return null;
+      }
+    }
+
+    for (const tab of tabs) {
+      console.debug("[CopyThief] captureSessionFromTabs: checking tab", {
+        id: tab.id,
+        url: tab.url,
+        status: tab.status,
+      });
+      let response = null;
+      try {
+        response = await chrome.tabs.sendMessage(tab.id, {
+          action: "getAuthFromPage",
+        });
+      } catch (error) {
+        console.debug("[CopyThief] captureSessionFromTabs: tab request failed", tab.id, error?.message);
+      }
+
+      if (!response || !response.success || !response.session) {
+        console.debug("[CopyThief] captureSessionFromTabs: attempting content script reinjection", tab.id);
+        const injected = await this.ensureContentBridge(tab.id);
+        if (injected) {
+          try {
+            response = await chrome.tabs.sendMessage(tab.id, {
+              action: "getAuthFromPage",
+            });
+          } catch (reinjectionError) {
+            console.debug(
+              "[CopyThief] captureSessionFromTabs: post-injection message failed",
+              tab.id,
+              reinjectionError?.message
+            );
+          }
+        }
+      }
+
+      if (response && response.success && response.session) {
+        console.debug("[CopyThief] captureSessionFromTabs: received session from tab", tab.id);
+        return {
+          session: response.session,
+          user: response.user || null,
+        };
+      }
+    }
+
+    console.debug("[CopyThief] captureSessionFromTabs: no session returned from tabs");
+    return null;
   }
 
   async syncAuthFromWebsite() {
     try {
-      // Tenta obter os tokens diretamente do callback do OAuth
-      // Primeiro, verifica se há uma sessão ativa no website
-      const response = await fetch(`${this.apiBaseUrl}/api/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include', // Inclui cookies da sessão
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const captured = await this.captureSessionFromTabs();
 
-      if (response.ok) {
-        const data = await response.json();
-        
-        if (data.success && data.data && data.data.session) {
-          // Obtém informações do usuário
-          const userResponse = await fetch(`${this.apiBaseUrl}/api/auth/me`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${data.data.session.access_token}`,
-              'Content-Type': 'application/json',
-            },
-          });
+      if (captured && captured.session) {
+        console.debug("[CopyThief] syncAuthFromWebsite: persisting session from tabs");
+        const normalizedUser = await this.persistSession(captured.session, captured.user);
+        return { success: true, user: normalizedUser };
+      }
 
-          let user = null;
-          if (userResponse.ok) {
-            const userData = await userResponse.json();
-            user = userData.data.user;
+      const cookieSession = await this.captureSessionFromCookies();
+      if (cookieSession && cookieSession.session) {
+        console.debug("[CopyThief] syncAuthFromWebsite: persisting session from cookies");
+        const normalizedUser = await this.persistSession(cookieSession.session, cookieSession.user);
+        return { success: true, user: normalizedUser };
+      }
+
+      try {
+        const meResponse = await fetch(`${this.apiBaseUrl}/api/auth/me`, {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (meResponse.ok) {
+          const meData = await meResponse.json();
+          if (meData.success && meData.data && meData.data.user) {
+            console.debug("[CopyThief] syncAuthFromWebsite: detected active cookie session but no tokens");
+            return {
+              success: false,
+              error: "Active web session detected but the extension could not read it. Open copythief.ai and try again.",
+            };
           }
-
-          // Salva os tokens no storage da extensão
-          await chrome.storage.local.set({
-            accessToken: data.data.session.access_token,
-            refreshToken: data.data.session.refresh_token,
-            expiresAt: data.data.session.expires_at,
-            user: user || { email: 'user@example.com' }, // Fallback se não conseguir obter dados do usuário
-          });
-
-          return { success: true, user: user || { email: 'user@example.com' } };
         }
+      } catch (cookieCheckError) {
+        // Ignora erros ao verificar cookies
       }
 
       return { success: false, error: "No active session found" };
     } catch (error) {
-      console.error("[CopyThief] Erro ao sincronizar autenticação:", error);
+      console.error("[CopyThief] Erro ao sincronizar autenticacao:", error);
       return { success: false, error: "Connection error" };
+    }
+  }
+
+  async getAuthFromPage() {
+    try {
+      const captured = await this.captureSessionFromTabs();
+
+      if (captured && captured.session) {
+        console.debug("[CopyThief] getAuthFromPage: persisting session");
+        const normalizedUser = await this.persistSession(captured.session, captured.user);
+        return { success: true, user: normalizedUser };
+      }
+
+      const cookieSession = await this.captureSessionFromCookies();
+      if (cookieSession && cookieSession.session) {
+        console.debug("[CopyThief] getAuthFromPage: persisting session from cookies");
+        const normalizedUser = await this.persistSession(cookieSession.session, cookieSession.user);
+        return { success: true, user: normalizedUser };
+      }
+
+      return { success: false, error: "No active session found" };
+    } catch (error) {
+      console.error("[CopyThief] Erro ao obter auth da pagina:", error);
+      return { success: false, error: "Connection error" };
+    }
+  }
+
+  async handleAuthDetected(session, user) {
+    try {
+      if (!session || !session.access_token) {
+        console.warn("[CopyThief] handleAuthDetected: invalid session payload", session);
+        return { success: false, error: "Invalid session data" };
+      }
+
+      console.debug("[CopyThief] handleAuthDetected: persisting detected session");
+      const normalizedUser = await this.persistSession(session, user);
+      return { success: true, user: normalizedUser };
+    } catch (error) {
+      console.error("[CopyThief] Erro ao processar auth detectado:", error);
+      return { success: false, error: error.message };
     }
   }
 
