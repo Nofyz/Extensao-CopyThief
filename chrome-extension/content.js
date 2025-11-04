@@ -557,6 +557,72 @@ function handleSwipe(adElement, index, folderId = null, buttonElement = null) {
     }
   }
 
+  // Page Name (nome da página do Facebook)
+  // Procura por link que aponta para o perfil da página do Facebook
+  // Tenta múltiplos seletores para maior compatibilidade
+  let pageLink = adElement.querySelector('a[href*="facebook.com/"][target="_blank"]');
+  if (!pageLink) {
+    // Tenta sem target="_blank"
+    pageLink = adElement.querySelector('a[href*="facebook.com/"]');
+  }
+  
+  if (pageLink) {
+    // Procura pelo texto dentro do link, tentando diferentes seletores
+    let pageNameSpan = pageLink.querySelector('span.x117nqv4'); // Classe comum para nome da página
+    if (!pageNameSpan) {
+      // Tenta qualquer span dentro do link
+      pageNameSpan = pageLink.querySelector('span');
+    }
+    
+    if (pageNameSpan && pageNameSpan.textContent && pageNameSpan.textContent.trim()) {
+      adData.pageName = pageNameSpan.textContent.trim();
+    } else if (pageLink.textContent && pageLink.textContent.trim()) {
+      // Fallback: usa o texto do próprio link se não encontrar span
+      adData.pageName = pageLink.textContent.trim();
+    }
+  }
+
+  // Page Photo (foto de perfil da página)
+  // Procura especificamente pela imagem com classes _8nqq img (foto de perfil)
+  // Tenta múltiplos seletores
+  let pagePhotoImg = adElement.querySelector('img._8nqq.img');
+  if (!pagePhotoImg) {
+    // Tenta apenas com uma das classes
+    pagePhotoImg = adElement.querySelector('img._8nqq');
+  }
+  if (!pagePhotoImg) {
+    // Tenta por alt text que geralmente contém o nome da página
+    pagePhotoImg = Array.from(adElement.querySelectorAll("img")).find(
+      (img) => img.alt && img.alt.trim() && img.classList.contains('_8nqq')
+    );
+  }
+  
+  if (pagePhotoImg && pagePhotoImg.src) {
+    adData.pagePhoto = pagePhotoImg.src;
+  } else {
+    // Fallback: procura imagem pequena no topo do card (geralmente 60x60px)
+    const profileImages = Array.from(adElement.querySelectorAll("img")).filter(
+      (img) => {
+        const rect = img.getBoundingClientRect();
+        // Imagens de perfil geralmente têm entre 40-80px
+        return rect.width >= 40 && rect.width <= 80 && rect.height >= 40 && rect.height <= 80;
+      }
+    );
+    if (profileImages.length > 0) {
+      // Pega a primeira imagem pequena encontrada (geralmente é a foto de perfil no topo)
+      adData.pagePhoto = profileImages[0].src;
+    } else if (adData.iconUrl) {
+      // Se não encontrar foto específica, usa o iconUrl como fallback
+      adData.pagePhoto = adData.iconUrl;
+    }
+  }
+
+  // Debug: log dos dados extraídos
+  console.log("[CopyThief] Page data extracted:", {
+    pageName: adData.pageName,
+    pagePhoto: adData.pagePhoto
+  });
+
   // Metadata (veiculação, tempo ativo)
   const veicEl = Array.from(adElement.querySelectorAll("span")).find(
     (el) => el.textContent && el.textContent.includes("Started running")

@@ -456,6 +456,13 @@ class CopyThiefBackground {
 
   async saveSwipe(swipeData) {
     try {
+      // Debug: log dos dados recebidos
+      console.log("[CopyThief] saveSwipe received data:", {
+        pageName: swipeData.pageName,
+        pagePhoto: swipeData.pagePhoto,
+        adType: swipeData.adType
+      });
+
       // Verifica autenticação
       const authResult = await this.checkAuth();
       if (!authResult.authenticated) {
@@ -486,6 +493,23 @@ class CopyThiefBackground {
           metadata: swipeData.metadata || {},
         };
 
+        // Adiciona Page_name e Page_photo apenas se existirem
+        if (swipeData.pageName) {
+          videoApiData.Page_name = swipeData.pageName;
+        }
+        if (swipeData.pagePhoto) {
+          videoApiData.Page_photo = swipeData.pagePhoto;
+        }
+
+        // Debug: log completo dos dados sendo enviados
+        console.log("[CopyThief] Sending video data - FULL PAYLOAD:", JSON.stringify(videoApiData, null, 2));
+        console.log("[CopyThief] Sending video data with Page fields:", {
+          Page_name: videoApiData.Page_name,
+          Page_photo: videoApiData.Page_photo,
+          hasPageName: !!videoApiData.Page_name,
+          hasPagePhoto: !!videoApiData.Page_photo
+        });
+
         try {
           // Envia para o serviço de vídeo (AWS Lambda)
           const response = await fetch(`${this.videoApiUrl}/api/save-video`, {
@@ -498,9 +522,29 @@ class CopyThiefBackground {
           });
 
           const result = await response.json();
+          
+          // Debug: log da resposta
+          console.log("[CopyThief] Video API response:", {
+            success: result.success,
+            hasPageName: !!result.swipe?.Page_name,
+            hasPagePhoto: !!result.swipe?.Page_photo,
+            swipe: result.swipe
+          });
 
           if (response.ok && result.success) {
-            // O serviço já salvou no Supabase, retorna sucesso com o swipe
+            // O serviço processou o vídeo, agora atualiza o swipe no Supabase com Page_name e Page_photo
+            if (result.swipe?.id && (swipeData.pageName || swipeData.pagePhoto)) {
+              try {
+                await this.updateSwipeInSupabase(result.swipe.id, {
+                  Page_name: swipeData.pageName || null,
+                  Page_photo: swipeData.pagePhoto || null,
+                });
+              } catch (updateError) {
+                console.error("[CopyThief] Erro ao atualizar swipe no Supabase:", updateError);
+                // Continua mesmo se a atualização falhar
+              }
+            }
+            
             return { 
               success: true, 
               swipe: result.swipe,
@@ -542,6 +586,23 @@ class CopyThiefBackground {
           metadata: swipeData.metadata || {},
         };
 
+        // Adiciona Page_name e Page_photo apenas se existirem
+        if (swipeData.pageName) {
+          imageApiData.Page_name = swipeData.pageName;
+        }
+        if (swipeData.pagePhoto) {
+          imageApiData.Page_photo = swipeData.pagePhoto;
+        }
+
+        // Debug: log completo dos dados sendo enviados
+        console.log("[CopyThief] Sending image data - FULL PAYLOAD:", JSON.stringify(imageApiData, null, 2));
+        console.log("[CopyThief] Sending image data with Page fields:", {
+          Page_name: imageApiData.Page_name,
+          Page_photo: imageApiData.Page_photo,
+          hasPageName: !!imageApiData.Page_name,
+          hasPagePhoto: !!imageApiData.Page_photo
+        });
+
         const response = await fetch(`${this.videoApiUrl}/api/save-video`, {
           method: "POST",
           headers: {
@@ -552,8 +613,29 @@ class CopyThiefBackground {
         });
 
         const result = await response.json();
+        
+        // Debug: log da resposta
+        console.log("[CopyThief] Image API response:", {
+          success: result.success,
+          hasPageName: !!result.swipe?.Page_name,
+          hasPagePhoto: !!result.swipe?.Page_photo,
+          swipe: result.swipe
+        });
 
         if (response.ok && result.success) {
+          // O serviço processou a imagem, agora atualiza o swipe no Supabase com Page_name e Page_photo
+          if (result.swipe?.id && (swipeData.pageName || swipeData.pagePhoto)) {
+            try {
+              await this.updateSwipeInSupabase(result.swipe.id, {
+                Page_name: swipeData.pageName || null,
+                Page_photo: swipeData.pagePhoto || null,
+              });
+            } catch (updateError) {
+              console.error("[CopyThief] Erro ao atualizar swipe no Supabase:", updateError);
+              // Continua mesmo se a atualização falhar
+            }
+          }
+          
           return { success: true, swipe: result.swipe };
         }
 
@@ -582,6 +664,20 @@ class CopyThiefBackground {
         metadata: swipeData.metadata || {},
         folderId: swipeData.folderId || undefined,
       };
+
+      // Adiciona Page_name e Page_photo apenas se existirem
+      if (swipeData.pageName) {
+        apiData.Page_name = swipeData.pageName;
+      }
+      if (swipeData.pagePhoto) {
+        apiData.Page_photo = swipeData.pagePhoto;
+      }
+
+      // Debug: log dos dados sendo enviados
+      console.log("[CopyThief] Sending fallback data with Page fields:", {
+        Page_name: apiData.Page_name,
+        Page_photo: apiData.Page_photo
+      });
 
       const response = await fetch(`${this.apiBaseUrl}/api/swipes`, {
         method: "POST",
@@ -883,6 +979,82 @@ class CopyThiefBackground {
     } catch (error) {
       console.error("[CopyThief] Erro ao buscar pastas:", error);
       return { success: false, error: "Connection error" };
+    }
+  }
+
+  async updateSwipeInSupabase(swipeId, updates) {
+    try {
+      console.log("[CopyThief] updateSwipeInSupabase called with:", { swipeId, updates });
+      
+      // Verifica autenticação
+      const authResult = await this.checkAuth();
+      if (!authResult.authenticated) {
+        console.error("[CopyThief] updateSwipeInSupabase: User not authenticated");
+        return { success: false, error: "User not authenticated" };
+      }
+
+      // Obtém token de acesso
+      const { accessToken } = await chrome.storage.local.get(["accessToken"]);
+      if (!accessToken) {
+        console.error("[CopyThief] updateSwipeInSupabase: No access token");
+        return { success: false, error: "No access token" };
+      }
+
+      // Tenta usar a API do copythief.ai primeiro (PATCH /api/swipes/:id)
+      try {
+        const apiResponse = await fetch(`${this.apiBaseUrl}/api/swipes/${swipeId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(updates),
+        });
+
+        if (apiResponse.ok) {
+          const updated = await apiResponse.json();
+          console.log("[CopyThief] Swipe atualizado via API:", updated);
+          return { success: true, swipe: updated.swipe || updated };
+        } else {
+          const errorText = await apiResponse.text();
+          console.warn("[CopyThief] API PATCH falhou, tentando Supabase direto:", apiResponse.status, errorText);
+          // Continua para tentar Supabase direto
+        }
+      } catch (apiError) {
+        console.warn("[CopyThief] Erro ao chamar API, tentando Supabase direto:", apiError);
+        // Continua para tentar Supabase direto
+      }
+
+      // Fallback: Atualiza diretamente no Supabase REST API
+      const supabaseUrl = "https://hkjiafvofsckqqcmadtf.supabase.co";
+      console.log("[CopyThief] Tentando atualizar diretamente no Supabase:", `${supabaseUrl}/rest/v1/swipes?id=eq.${swipeId}`);
+      
+      const response = await fetch(`${supabaseUrl}/rest/v1/swipes?id=eq.${swipeId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
+          "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhramlhZnZvZnNja3FxY21hdGRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAyNTcwMTEsImV4cCI6MjA2NTgzMzAxMX0.1FP59n2a3B4A2iKiKzPpbKqlXwCbyNimHujCRjzDZEI",
+          "Prefer": "return=representation"
+        },
+        body: JSON.stringify(updates),
+      });
+
+      console.log("[CopyThief] Supabase response status:", response.status);
+
+      if (response.ok) {
+        const updated = await response.json();
+        console.log("[CopyThief] Swipe atualizado no Supabase:", updated);
+        return { success: true, swipe: updated[0] || updated };
+      } else {
+        const errorText = await response.text();
+        console.error("[CopyThief] Erro ao atualizar swipe:", response.status, errorText);
+        return { success: false, error: `Erro ${response.status}: ${errorText}` };
+      }
+    } catch (error) {
+      console.error("[CopyThief] Erro ao atualizar swipe no Supabase:", error);
+      console.error("[CopyThief] Error details:", error.message, error.stack);
+      return { success: false, error: error.message };
     }
   }
 }
