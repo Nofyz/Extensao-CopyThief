@@ -8,7 +8,8 @@ class CopyThiefBackground {
     // URL do serviço de vídeo (AWS Lambda) - pode ser sobrescrito via chrome.storage
     // Para desenvolvimento local, use: "http://localhost:4000"
     // Para produção, será: "https://copythief.ai" (mesma URL, roteado pelo backend)
-    this.videoApiUrl = "https://p625iryn4j.execute-api.us-east-1.amazonaws.com/prod"; 
+    // this.videoApiUrl = "https://p625iryn4j.execute-api.us-east-1.amazonaws.com/prod"; 
+    this.videoApiUrl = "http://localhost:4000";
     this.debug = true;
     this.requestTimeout = 10000;
 
@@ -532,19 +533,7 @@ class CopyThiefBackground {
           });
 
           if (response.ok && result.success) {
-            // O serviço processou o vídeo, agora atualiza o swipe no Supabase com Page_name e Page_photo
-            if (result.swipe?.id && (swipeData.pageName || swipeData.pagePhoto)) {
-              try {
-                await this.updateSwipeInSupabase(result.swipe.id, {
-                  Page_name: swipeData.pageName || null,
-                  Page_photo: swipeData.pagePhoto || null,
-                });
-              } catch (updateError) {
-                console.error("[CopyThief] Erro ao atualizar swipe no Supabase:", updateError);
-                // Continua mesmo se a atualização falhar
-              }
-            }
-            
+            // O Lambda já processou e salvou Page_photo e Page_name no Supabase
             return { 
               success: true, 
               swipe: result.swipe,
@@ -623,19 +612,7 @@ class CopyThiefBackground {
         });
 
         if (response.ok && result.success) {
-          // O serviço processou a imagem, agora atualiza o swipe no Supabase com Page_name e Page_photo
-          if (result.swipe?.id && (swipeData.pageName || swipeData.pagePhoto)) {
-            try {
-              await this.updateSwipeInSupabase(result.swipe.id, {
-                Page_name: swipeData.pageName || null,
-                Page_photo: swipeData.pagePhoto || null,
-              });
-            } catch (updateError) {
-              console.error("[CopyThief] Erro ao atualizar swipe no Supabase:", updateError);
-              // Continua mesmo se a atualização falhar
-            }
-          }
-          
+          // O Lambda já processou e salvou Page_photo e Page_name no Supabase
           return { success: true, swipe: result.swipe };
         }
 
