@@ -337,6 +337,110 @@ function loadFolders(dropdown, adElement, index) {
   );
 }
 
+// Função auxiliar para encontrar a imagem correta do anúncio
+// Filtra fotos de perfil e prioriza imagens grandes do CDN do Facebook
+function findAdImage(adElement) {
+  const allImages = Array.from(adElement.querySelectorAll("img"));
+  
+  if (allImages.length === 0) {
+    return null;
+  }
+
+  // Função para verificar se é imagem do CDN do Facebook
+  const isFacebookCDN = (url) => {
+    return url && url.includes("scontent-") && url.includes(".fbcdn.net");
+  };
+
+  // Função para verificar se está dentro de um card/container de produto
+  const isInCard = (img) => {
+    let parent = img.parentElement;
+    let depth = 0;
+    while (parent && depth < 10) {
+      const parentClass = parent.className || "";
+      const parentId = parent.id || "";
+      if (
+        parentClass.includes("card") ||
+        parentClass.includes("product") ||
+        parentClass.includes("item") ||
+        parentId.includes("card") ||
+        parentId.includes("product")
+      ) {
+        return true;
+      }
+      parent = parent.parentElement;
+      depth++;
+    }
+    return false;
+  };
+
+  // Filtra e classifica imagens
+  const candidateImages = allImages
+    .map((img) => {
+      if (!img.src || !img.complete) {
+        return null;
+      }
+
+      const rect = img.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const size = width * height;
+
+      // Filtra imagens muito pequenas (fotos de perfil são geralmente 40-80px)
+      if (width < 100 || height < 100) {
+        return null;
+      }
+
+      // Calcula score de prioridade
+      let score = 0;
+      
+      // Prioriza imagens maiores
+      score += Math.min(size / 10000, 10); // Max 10 pontos por tamanho
+      
+      // Prioriza imagens do CDN do Facebook
+      if (isFacebookCDN(img.src)) {
+        score += 20;
+      }
+      
+      // Prioriza imagens dentro de cards
+      if (isInCard(img)) {
+        score += 15;
+      }
+      
+      // Prioriza imagens com dimensões maiores (mais provável de ser conteúdo principal)
+      if (width >= 400 || height >= 400) {
+        score += 10;
+      }
+
+      return {
+        img,
+        src: img.src,
+        width,
+        height,
+        size,
+        score,
+        isFacebookCDN: isFacebookCDN(img.src),
+        isInCard: isInCard(img),
+      };
+    })
+    .filter((candidate) => candidate !== null);
+
+  if (candidateImages.length === 0) {
+    // Fallback: retorna a primeira imagem que não seja muito pequena
+    const fallback = allImages.find((img) => {
+      if (!img.src) return false;
+      const rect = img.getBoundingClientRect();
+      return rect.width >= 50 && rect.height >= 50;
+    });
+    return fallback ? fallback.src : null;
+  }
+
+  // Ordena por score (maior primeiro)
+  candidateImages.sort((a, b) => b.score - a.score);
+
+  // Retorna a melhor imagem
+  return candidateImages[0].src;
+}
+
 function handleSwipe(adElement, index, folderId = null, buttonElement = null) {
   // Obtém a referência do botão se não foi passada
   const button = buttonElement || adElement._copythiefButton;
@@ -390,13 +494,7 @@ function handleSwipe(adElement, index, folderId = null, buttonElement = null) {
     adData.description = descEl.textContent.trim();
   }
 
-  // Imagem principal
-  const image = adElement.querySelector("img");
-  if (image && image.src) {
-    adData.imageUrl = image.src;
-  }
-
-  // Vídeo
+  // Vídeo (verifica primeiro, pois vídeos têm prioridade)
   const video = adElement.querySelector("video");
   if (video && video.src) {
     adData.videoUrl = video.src;
@@ -404,11 +502,15 @@ function handleSwipe(adElement, index, folderId = null, buttonElement = null) {
     adData.adType = "VIDEO";
   }
 
-  // Define contentUrl e thumbnailUrl baseado no tipo de mídia
-  if (adData.imageUrl && !adData.adType) {
-    adData.contentUrl = adData.imageUrl;
-    adData.thumbnailUrl = adData.imageUrl;
-    adData.adType = "IMAGE";
+  // Imagem principal - usa a nova função para encontrar a melhor imagem
+  if (!adData.adType) {
+    const adImageUrl = findAdImage(adElement);
+    if (adImageUrl) {
+      adData.imageUrl = adImageUrl;
+      adData.contentUrl = adImageUrl;
+      adData.thumbnailUrl = adImageUrl;
+      adData.adType = "IMAGE";
+    }
   }
 
   // Se não encontrou nem imagem nem vídeo, define como IMAGE por padrão
