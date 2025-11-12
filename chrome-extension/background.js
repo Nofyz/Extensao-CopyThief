@@ -492,6 +492,12 @@ class CopyThiefBackground {
           folderId: swipeData.folderId || undefined,
           timestamp: swipeData.timestamp || new Date().toISOString(),
           metadata: swipeData.metadata || {},
+          duration: swipeData.duration || undefined,
+          has_audio: swipeData.has_audio !== undefined ? swipeData.has_audio : undefined,
+          external_ad_id: swipeData.external_ad_id || swipeData.platformAdId || undefined,
+          first_seen_at: swipeData.first_seen_at || swipeData.timestamp || new Date().toISOString(),
+          is_new: swipeData.is_new !== undefined ? swipeData.is_new : true,
+          source: swipeData.source || {},
         };
 
         // Adiciona Page_name e Page_photo apenas se existirem
@@ -573,6 +579,10 @@ class CopyThiefBackground {
           folderId: swipeData.folderId || undefined,
           timestamp: swipeData.timestamp || new Date().toISOString(),
           metadata: swipeData.metadata || {},
+          external_ad_id: swipeData.external_ad_id || swipeData.platformAdId || undefined,
+          first_seen_at: swipeData.first_seen_at || swipeData.timestamp || new Date().toISOString(),
+          is_new: swipeData.is_new !== undefined ? swipeData.is_new : true,
+          source: swipeData.source || {},
         };
 
         // Adiciona Page_name e Page_photo apenas se existirem
@@ -640,6 +650,12 @@ class CopyThiefBackground {
         iconUrl: swipeData.iconUrl || undefined,
         metadata: swipeData.metadata || {},
         folderId: swipeData.folderId || undefined,
+        duration: swipeData.duration || undefined,
+        has_audio: swipeData.has_audio !== undefined ? swipeData.has_audio : undefined,
+        externalAdId: swipeData.external_ad_id || swipeData.platformAdId || undefined,
+        firstSeenAt: swipeData.first_seen_at || swipeData.timestamp || new Date().toISOString(),
+        isNew: swipeData.is_new !== undefined ? swipeData.is_new : true,
+        source: swipeData.source || {},
       };
 
       // Adiciona Page_name e Page_photo apenas se existirem

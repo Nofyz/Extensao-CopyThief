@@ -500,6 +500,43 @@ function handleSwipe(adElement, index, folderId = null, buttonElement = null) {
     adData.videoUrl = video.src;
     adData.contentUrl = video.src;
     adData.adType = "VIDEO";
+    
+    // Extrair informações do vídeo
+    // Duration - tenta do atributo duration ou do elemento
+    if (video.duration && !isNaN(video.duration) && isFinite(video.duration)) {
+      adData.duration = Math.round(video.duration); // Duração em segundos
+    } else if (video.readyState >= 2) {
+      // Se o vídeo já carregou metadados, tenta obter duration
+      try {
+        if (video.duration && !isNaN(video.duration)) {
+          adData.duration = Math.round(video.duration);
+        }
+      } catch (e) {
+        console.debug("[CopyThief] Could not get video duration:", e);
+      }
+    }
+    
+    // Has audio - verifica se o vídeo tem áudio
+    // Verifica se está muted ou se tem tracks de áudio
+    if (video.muted !== undefined && video.muted === true) {
+      adData.has_audio = false;
+    } else {
+      // Tenta verificar se há tracks de áudio (pode não estar disponível em todos os navegadores)
+      try {
+        if (video.audioTracks && video.audioTracks.length > 0) {
+          adData.has_audio = true;
+        } else if (video.mozHasAudio !== undefined) {
+          // Firefox
+          adData.has_audio = video.mozHasAudio;
+        } else {
+          // Fallback: assume que tem áudio se não estiver explicitamente muted
+          adData.has_audio = !video.muted;
+        }
+      } catch (e) {
+        // Se não conseguir verificar, assume que tem áudio se não estiver muted
+        adData.has_audio = !video.muted;
+      }
+    }
   }
 
   // Imagem principal - usa a nova função para encontrar a melhor imagem
@@ -632,6 +669,13 @@ function handleSwipe(adElement, index, folderId = null, buttonElement = null) {
   );
   if (idMatch) {
     adData.platformAdId = idMatch[1];
+    // Também preenche external_ad_id com o mesmo valor
+    adData.external_ad_id = idMatch[1];
+  }
+  
+  // Se já temos platformAdId do span anterior, também preenche external_ad_id
+  if (adData.platformAdId && !adData.external_ad_id) {
+    adData.external_ad_id = adData.platformAdId;
   }
 
   // Platform URL (link do perfil/página)
@@ -725,23 +769,239 @@ function handleSwipe(adElement, index, folderId = null, buttonElement = null) {
     pagePhoto: adData.pagePhoto
   });
 
-  // Metadata (veiculação, tempo ativo)
+  // Metadata (veiculação, tempo ativo, datas estruturadas)
   const veicEl = Array.from(adElement.querySelectorAll("span")).find(
-    (el) => el.textContent && el.textContent.includes("Started running")
+    (el) => el.textContent && (
+      el.textContent.includes("Started running") ||
+      el.textContent.includes("Iniciado em") ||
+      el.textContent.includes("Começou a ser exibido")
+    )
   );
   if (veicEl && veicEl.textContent) {
-    const [veiculacao, tempo_ativo] = veicEl.textContent
-      .split("·")
-      .map((s) => s.trim());
-    adData.metadata.veiculacao = veiculacao?.replace(
-      "Started running on ",
-      ""
+    const text = veicEl.textContent;
+    const parts = text.split("·").map((s) => s.trim());
+    
+    // Extrai data de início
+    let startDateText = parts[0]?.replace(/Started running on |Iniciado em |Começou a ser exibido em /gi, "").trim();
+    if (startDateText) {
+      adData.metadata.veiculacao = startDateText;
+      // Tenta parsear a data para formato ISO
+      try {
+        const parsedDate = new Date(startDateText);
+        if (!isNaN(parsedDate.getTime())) {
+          adData.metadata.ad_delivery_start_time = parsedDate.toISOString();
+        }
+      } catch (e) {
+        console.debug("[CopyThief] Could not parse start date:", e);
+      }
+    }
+    
+    // Extrai tempo ativo
+    let activeTimeText = parts[1]?.replace(/Total active time: |Tempo total ativo: /gi, "").trim();
+    if (activeTimeText) {
+      adData.metadata.tempo_ativo = activeTimeText;
+    }
+    
+    // Procura por data de fim (se disponível)
+    const endDateEl = Array.from(adElement.querySelectorAll("span")).find(
+      (el) => el.textContent && (
+        el.textContent.includes("Stopped running") ||
+        el.textContent.includes("Parou de ser exibido") ||
+        el.textContent.includes("Ended")
+      )
     );
-    adData.metadata.tempo_ativo = tempo_ativo?.replace(
-      "Total active time: ",
-      ""
-    );
+    if (endDateEl && endDateEl.textContent) {
+      let endDateText = endDateEl.textContent
+        .replace(/Stopped running on |Parou de ser exibido em |Ended on /gi, "")
+        .trim();
+      if (endDateText) {
+        adData.metadata.ad_delivery_stop_time_text = endDateText;
+        try {
+          const parsedEndDate = new Date(endDateText);
+          if (!isNaN(parsedEndDate.getTime())) {
+            adData.metadata.ad_delivery_stop_time = parsedEndDate.toISOString();
+          }
+        } catch (e) {
+          console.debug("[CopyThief] Could not parse end date:", e);
+        }
+      }
+    }
   }
+  
+  // Capturar plataformas de publicação (Facebook, Instagram, Messenger, etc)
+  const publisherPlatforms = [];
+  
+  // Procura por ícones/logos das plataformas
+  // Facebook
+  const facebookIcon = adElement.querySelector('img[alt*="Facebook"], img[alt*="facebook"], svg[aria-label*="Facebook"]');
+  if (facebookIcon || adElement.innerHTML.includes('facebook.com')) {
+    publisherPlatforms.push("Facebook");
+  }
+  
+  // Instagram
+  const instagramIcon = adElement.querySelector('img[alt*="Instagram"], img[alt*="instagram"], svg[aria-label*="Instagram"]');
+  if (instagramIcon || adElement.innerHTML.includes('instagram.com')) {
+    publisherPlatforms.push("Instagram");
+  }
+  
+  // Messenger
+  const messengerIcon = adElement.querySelector('img[alt*="Messenger"], img[alt*="messenger"], svg[aria-label*="Messenger"]');
+  if (messengerIcon || adElement.innerHTML.includes('messenger.com')) {
+    publisherPlatforms.push("Messenger");
+  }
+  
+  // Procura por texto indicando plataformas
+  const platformText = adElement.textContent || "";
+  if (platformText.match(/Facebook/i) && !publisherPlatforms.includes("Facebook")) {
+    publisherPlatforms.push("Facebook");
+  }
+  if (platformText.match(/Instagram/i) && !publisherPlatforms.includes("Instagram")) {
+    publisherPlatforms.push("Instagram");
+  }
+  if (platformText.match(/Messenger/i) && !publisherPlatforms.includes("Messenger")) {
+    publisherPlatforms.push("Messenger");
+  }
+  
+  if (publisherPlatforms.length > 0) {
+    adData.metadata.publisher_platforms = publisherPlatforms;
+  }
+  
+  // Capturar idiomas do anúncio
+  const languages = [];
+  
+  // Procura por texto indicando idiomas
+  const languageIndicators = [
+    /Language:?\s*([A-Za-z]{2})/i,
+    /Idioma:?\s*([A-Za-z]{2})/i,
+    /Lang:?\s*([A-Za-z]{2})/i,
+    /\(([A-Za-z]{2})\)/g
+  ];
+  
+  const adText = adElement.textContent || "";
+  languageIndicators.forEach(pattern => {
+    const matches = adText.matchAll(pattern);
+    for (const match of matches) {
+      if (match[1] && match[1].length === 2) {
+        const lang = match[1].toLowerCase();
+        if (!languages.includes(lang)) {
+          languages.push(lang);
+        }
+      }
+    }
+  });
+  
+  // Fallback: tenta detectar idioma pelo conteúdo do texto
+  if (languages.length === 0) {
+    // Detecção básica de idioma por palavras comuns
+    if (adText.match(/\b(the|and|or|is|are|was|were)\b/i)) {
+      languages.push("en");
+    }
+    if (adText.match(/\b(o|a|os|as|de|do|da|dos|das|é|são|foi|foram)\b/i)) {
+      languages.push("pt");
+    }
+    if (adText.match(/\b(el|la|los|las|de|del|es|son|fue|fueron)\b/i)) {
+      languages.push("es");
+    }
+  }
+  
+  if (languages.length > 0) {
+    adData.metadata.languages = languages;
+  }
+  
+  // Capturar países onde o anúncio está sendo veiculado
+  const targetedCountries = [];
+  
+  // Procura por texto indicando países
+  const countryIndicators = [
+    /Country:?\s*([A-Z]{2})/i,
+    /País:?\s*([A-Z]{2})/i,
+    /Location:?\s*([A-Z]{2})/i,
+    /Localização:?\s*([A-Z]{2})/i,
+    /\b([A-Z]{2})\b/g // Códigos de país de 2 letras
+  ];
+  
+  countryIndicators.forEach(pattern => {
+    const matches = adText.matchAll(pattern);
+    for (const match of matches) {
+      if (match[1] && match[1].length === 2) {
+        const country = match[1].toUpperCase();
+        // Valida se é um código de país conhecido (lista básica)
+        const knownCountries = ["US", "BR", "GB", "CA", "AU", "DE", "FR", "ES", "IT", "PT", "MX", "AR", "CL", "CO"];
+        if (knownCountries.includes(country) && !targetedCountries.includes(country)) {
+          targetedCountries.push(country);
+        }
+      }
+    }
+  });
+  
+  // Procura por nomes de países no texto
+  const countryNames = {
+    "United States": "US", "USA": "US", "Estados Unidos": "US",
+    "Brazil": "BR", "Brasil": "BR",
+    "United Kingdom": "GB", "UK": "GB", "Reino Unido": "GB",
+    "Canada": "CA", "Canadá": "CA",
+    "Australia": "AU", "Austrália": "AU",
+    "Germany": "DE", "Alemanha": "DE",
+    "France": "FR", "França": "FR",
+    "Spain": "ES", "Espanha": "ES",
+    "Italy": "IT", "Itália": "IT",
+    "Portugal": "PT",
+    "Mexico": "MX", "México": "MX",
+    "Argentina": "AR",
+    "Chile": "CL",
+    "Colombia": "CO", "Colômbia": "CO"
+  };
+  
+  Object.keys(countryNames).forEach(countryName => {
+    if (adText.match(new RegExp(`\\b${countryName}\\b`, "i"))) {
+      const code = countryNames[countryName];
+      if (!targetedCountries.includes(code)) {
+        targetedCountries.push(code);
+      }
+    }
+  });
+  
+  if (targetedCountries.length > 0) {
+    adData.metadata.targeted_countries = targetedCountries;
+  }
+  
+  // Detectar formato do anúncio (carousel, single image, video, etc)
+  const carouselIndicators = adElement.querySelectorAll('[role="tab"], [aria-label*="carousel"], [aria-label*="Carousel"]');
+  if (carouselIndicators.length > 0) {
+    adData.metadata.ad_format = "carousel";
+    adData.metadata.carousel_count = carouselIndicators.length;
+  } else if (adData.adType === "VIDEO") {
+    adData.metadata.ad_format = "video";
+  } else if (adData.adType === "IMAGE") {
+    // Verifica se há múltiplas imagens
+    const images = adElement.querySelectorAll("img");
+    const largeImages = Array.from(images).filter(img => {
+      const rect = img.getBoundingClientRect();
+      return rect.width >= 200 && rect.height >= 200;
+    });
+    if (largeImages.length > 1) {
+      adData.metadata.ad_format = "multi_image";
+      adData.metadata.image_count = largeImages.length;
+    } else {
+      adData.metadata.ad_format = "single_image";
+    }
+  }
+  
+  // Preencher campos não utilizados
+  // first_seen_at - usar o timestamp atual
+  adData.first_seen_at = adData.timestamp;
+  
+  // is_new - sempre true para novos anúncios capturados
+  adData.is_new = true;
+  
+  // source - adicionar JSONB com dados da fonte
+  adData.source = {
+    url: window.location.href,
+    user_agent: navigator.userAgent,
+    platform: "META_FACEBOOK",
+    captured_at: new Date().toISOString(),
+    extension_version: chrome.runtime.getManifest().version || "1.0.11"
+  };
 
   // Mostra estado de loading no botão durante o salvamento
   if (button && !button.classList.contains('copythief-saved')) {
