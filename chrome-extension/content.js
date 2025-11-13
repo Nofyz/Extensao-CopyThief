@@ -871,17 +871,28 @@ function handleSwipe(adElement, index, folderId = null, buttonElement = null) {
   
   // Procura por texto indicando idiomas
   const languageIndicators = [
-    /Language:?\s*([A-Za-z]{2})/i,
-    /Idioma:?\s*([A-Za-z]{2})/i,
-    /Lang:?\s*([A-Za-z]{2})/i,
+    /Language:?\s*([A-Za-z]{2})/gi,
+    /Idioma:?\s*([A-Za-z]{2})/gi,
+    /Lang:?\s*([A-Za-z]{2})/gi,
     /\(([A-Za-z]{2})\)/g
   ];
   
   const adText = adElement.textContent || "";
   languageIndicators.forEach(pattern => {
-    const matches = adText.matchAll(pattern);
-    for (const match of matches) {
-      if (match[1] && match[1].length === 2) {
+    try {
+      const matches = adText.matchAll(pattern);
+      for (const match of matches) {
+        if (match[1] && match[1].length === 2) {
+          const lang = match[1].toLowerCase();
+          if (!languages.includes(lang)) {
+            languages.push(lang);
+          }
+        }
+      }
+    } catch (e) {
+      // Fallback se matchAll falhar (regex sem flag g)
+      const match = adText.match(pattern);
+      if (match && match[1] && match[1].length === 2) {
         const lang = match[1].toLowerCase();
         if (!languages.includes(lang)) {
           languages.push(lang);
@@ -913,19 +924,31 @@ function handleSwipe(adElement, index, folderId = null, buttonElement = null) {
   
   // Procura por texto indicando países
   const countryIndicators = [
-    /Country:?\s*([A-Z]{2})/i,
-    /País:?\s*([A-Z]{2})/i,
-    /Location:?\s*([A-Z]{2})/i,
-    /Localização:?\s*([A-Z]{2})/i,
+    /Country:?\s*([A-Z]{2})/gi,
+    /País:?\s*([A-Z]{2})/gi,
+    /Location:?\s*([A-Z]{2})/gi,
+    /Localização:?\s*([A-Z]{2})/gi,
     /\b([A-Z]{2})\b/g // Códigos de país de 2 letras
   ];
   
   countryIndicators.forEach(pattern => {
-    const matches = adText.matchAll(pattern);
-    for (const match of matches) {
-      if (match[1] && match[1].length === 2) {
+    try {
+      const matches = adText.matchAll(pattern);
+      for (const match of matches) {
+        if (match[1] && match[1].length === 2) {
+          const country = match[1].toUpperCase();
+          // Valida se é um código de país conhecido (lista básica)
+          const knownCountries = ["US", "BR", "GB", "CA", "AU", "DE", "FR", "ES", "IT", "PT", "MX", "AR", "CL", "CO"];
+          if (knownCountries.includes(country) && !targetedCountries.includes(country)) {
+            targetedCountries.push(country);
+          }
+        }
+      }
+    } catch (e) {
+      // Fallback se matchAll falhar (regex sem flag g)
+      const match = adText.match(pattern);
+      if (match && match[1] && match[1].length === 2) {
         const country = match[1].toUpperCase();
-        // Valida se é um código de país conhecido (lista básica)
         const knownCountries = ["US", "BR", "GB", "CA", "AU", "DE", "FR", "ES", "IT", "PT", "MX", "AR", "CL", "CO"];
         if (knownCountries.includes(country) && !targetedCountries.includes(country)) {
           targetedCountries.push(country);
